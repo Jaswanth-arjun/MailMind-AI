@@ -19,7 +19,9 @@ import {
   PenSquare, 
   Reply, 
   Settings, 
-  Layers 
+  Layers,
+  Users,
+  Bell
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -30,6 +32,7 @@ export default function Sidebar() {
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
   const [storageLimit, setStorageLimit] = useState<number>(15 * 1024 * 1024 * 1024);
   const [storageUsage, setStorageUsage] = useState<number>(0);
+  const [activeInboxCategory, setActiveInboxCategory] = useState('Primary');
 
   useEffect(() => {
     // Try to load dynamic email/unread count if available
@@ -63,6 +66,13 @@ export default function Sidebar() {
       });
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && pathname === '/dashboard/emails') {
+      const category = new URLSearchParams(window.location.search).get('category');
+      setActiveInboxCategory(category || 'Primary');
+    }
+  }, [pathname]);
+
   const mainNavItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/dashboard/emails', label: 'Inbox', icon: Inbox, badge: unreadCount ?? undefined },
@@ -74,6 +84,13 @@ export default function Sidebar() {
     { href: '/dashboard/trash', label: 'Trash', icon: Trash2 },
     { href: '/dashboard/categories', label: 'Categories', icon: Tag },
     { href: '/dashboard/labels', label: 'Labels', icon: Bookmark },
+  ];
+
+  const inboxCategoryItems = [
+    { href: '/dashboard/emails?category=Primary', label: 'Primary', category: 'Primary', icon: Inbox },
+    { href: '/dashboard/emails?category=Promotions', label: 'Promotions', category: 'Promotions', icon: Tag },
+    { href: '/dashboard/emails?category=Social', label: 'Social', category: 'Social', icon: Users },
+    { href: '/dashboard/emails?category=Updates', label: 'Updates', category: 'Updates', icon: Bell },
   ];
 
   const aiToolsItems = [
@@ -92,6 +109,10 @@ export default function Sidebar() {
       return pathname === '/dashboard';
     }
     return pathname?.startsWith(href);
+  };
+
+  const isInboxCategoryActive = (category: string) => {
+    return pathname === '/dashboard/emails' && activeInboxCategory === category;
   };
 
   const formatBytesToGB = (bytes: number) => {
@@ -120,29 +141,53 @@ export default function Sidebar() {
             const active = isLinkActive(item.href);
             const Icon = item.icon;
             return (
-              <Link
-                key={item.href}
-                href={item.href === '/dashboard' || item.href === '/dashboard/emails' || item.href === '/dashboard/categories' || item.href === '/dashboard/all-mail' ? item.href : '/dashboard'}
-                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-[13.5px] font-medium transition-all duration-200 group relative
-                  ${active 
-                    ? 'bg-[#181d2a] text-[#818cf8] border border-[#2b354d]' 
-                    : 'text-[#8c9bb4] hover:bg-[#111520] hover:text-white border border-transparent'
-                  }`}
-              >
-                {active && (
-                  <span className="absolute left-0 top-3 bottom-3 w-[3px] bg-[#6366f1] rounded-r-md" />
+              <div key={item.href}>
+                <Link
+                  href={item.href === '/dashboard' || item.href === '/dashboard/emails' || item.href === '/dashboard/categories' || item.href === '/dashboard/all-mail' ? item.href : '/dashboard'}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-[13.5px] font-medium transition-all duration-200 group relative
+                    ${active 
+                      ? 'bg-[#181d2a] text-[#818cf8] border border-[#2b354d]' 
+                      : 'text-[#8c9bb4] hover:bg-[#111520] hover:text-white border border-transparent'
+                    }`}
+                >
+                  {active && (
+                    <span className="absolute left-0 top-3 bottom-3 w-[3px] bg-[#6366f1] rounded-r-md" />
+                  )}
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-4 h-4 transition-colors ${active ? 'text-[#818cf8]' : 'text-[#8c9bb4] group-hover:text-white'}`} />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge !== undefined && (
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold
+                      ${active ? 'bg-[#6366f1]/20 text-[#818cf8]' : 'bg-[#181d2a] text-[#64748b]'}`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+                {item.href === '/dashboard/emails' && active && (
+                  <div className="mt-1.5 ml-4 space-y-1 border-l border-[#1f2940] pl-3">
+                    {inboxCategoryItems.map((categoryItem) => {
+                      const CategoryIcon = categoryItem.icon;
+                      const categoryActive = isInboxCategoryActive(categoryItem.category);
+                      return (
+                        <Link
+                          key={categoryItem.category}
+                          href={categoryItem.href}
+                          onClick={() => setActiveInboxCategory(categoryItem.category)}
+                          className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-all
+                            ${categoryActive
+                              ? 'bg-[#111827] text-white'
+                              : 'text-[#7b89a6] hover:bg-[#111520] hover:text-white'
+                            }`}
+                        >
+                          <CategoryIcon className={`h-3.5 w-3.5 ${categoryActive ? 'text-[#818cf8]' : 'text-[#64748b]'}`} />
+                          <span>{categoryItem.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
                 )}
-                <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 transition-colors ${active ? 'text-[#818cf8]' : 'text-[#8c9bb4] group-hover:text-white'}`} />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge !== undefined && (
-                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold
-                    ${active ? 'bg-[#6366f1]/20 text-[#818cf8]' : 'bg-[#181d2a] text-[#64748b]'}`}>
-                    {item.badge}
-                  </span>
-                )}
-              </Link>
+              </div>
             );
           })}
         </div>
