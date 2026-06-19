@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '@/lib/types';
 import type { EmailSummary } from '@/lib/types';
 
-const categories = ['Primary', 'Promotions', 'Social', 'Updates'];
+const categories = ['All', 'Work/Professional', 'Personal', 'Finance', 'Newsletters', 'Job/Recruitment', 'Notifications'];
 
 function formatTime(iso: string) {
   const d = new Date(iso);
@@ -16,16 +16,17 @@ function formatTime(iso: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export default function EmailsPage() {
+export default function AllMailPage() {
   const [emails, setEmails] = useState<EmailSummary[]>([]);
-  const [filter, setFilter] = useState('Primary');
+  const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
 
   const fetchEmails = (currentFilter: string) => {
     setLoading(true);
-    api.getEmails(0, 100, currentFilter, true) // inboxOnly = true
+    const catParam = currentFilter === 'All' ? undefined : currentFilter;
+    api.getEmails(0, 100, catParam, false) // inboxOnly = false
       .then(res => setEmails(res.emails))
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -34,16 +35,6 @@ export default function EmailsPage() {
   useEffect(() => {
     fetchEmails(filter);
   }, [filter]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const cat = params.get('category');
-      if (cat && categories.includes(cat)) {
-        setFilter(cat);
-      }
-    }
-  }, []);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -78,7 +69,7 @@ export default function EmailsPage() {
   return (
     <div className="animate-fade-in max-w-5xl">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">📬 Inbox</h1>
+        <h1 className="text-2xl font-bold">📧 All Mail</h1>
         <button onClick={handleSync} disabled={syncing} className="btn-primary text-sm">
           {syncing ? '🔄 Syncing...' : '🔄 Sync'}
         </button>
@@ -86,38 +77,16 @@ export default function EmailsPage() {
 
       {/* Search & Filter */}
       <div className="flex items-center gap-4 mb-6">
-        <input type="text" placeholder="Search inbox..." value={search} onChange={e => setSearch(e.target.value)}
+        <input type="text" placeholder="Search all emails..." value={search} onChange={e => setSearch(e.target.value)}
           className="input-field flex-1" />
       </div>
-
-      {/* Gmail Style Category Tabs */}
-      <div className="flex border-b border-[#1a1f2e] mb-6 overflow-hidden rounded-xl bg-[#0b0f19]">
-        {categories.map(c => {
-          const active = filter === c;
-          let activeStyle = '';
-          switch(c) {
-            case 'Primary':
-              activeStyle = 'text-blue-400 border-blue-500 bg-blue-500/5';
-              break;
-            case 'Promotions':
-              activeStyle = 'text-purple-400 border-purple-500 bg-purple-500/5';
-              break;
-            case 'Social':
-              activeStyle = 'text-rose-400 border-rose-500 bg-rose-500/5';
-              break;
-            case 'Updates':
-              activeStyle = 'text-amber-400 border-amber-500 bg-amber-500/5';
-              break;
-          }
-          return (
-            <button key={c} onClick={() => setFilter(c)}
-              className={`flex-1 py-4 text-center text-sm font-semibold transition-all border-b-2 flex items-center justify-center gap-2
-                ${active ? activeStyle : 'text-[#8c9bb4] border-transparent hover:text-white hover:bg-[#111520]'}`}>
-              <span className="text-lg">{CATEGORY_ICONS[c]}</span>
-              <span>{c}</span>
-            </button>
-          );
-        })}
+      <div className="flex gap-2 mb-6 flex-wrap">
+        {categories.map(c => (
+          <button key={c} onClick={() => setFilter(c)}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${filter === c ? 'bg-primary text-white' : 'glass text-text-muted hover:text-text'}`}>
+            {c === 'All' ? '📧' : CATEGORY_ICONS[c]} {c}
+          </button>
+        ))}
       </div>
 
       {/* Email List */}
@@ -143,7 +112,7 @@ export default function EmailsPage() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-text-muted">
           <p className="text-4xl mb-3">📭</p>
-          <p>No emails found in this category</p>
+          <p>No emails found matching your criteria</p>
         </div>
       ) : (
         <div className="space-y-2">

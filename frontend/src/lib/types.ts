@@ -141,6 +141,10 @@ export const CATEGORY_COLORS: Record<string, string> = {
   'Notifications': 'bg-amber-500/20 text-amber-300 border-amber-500/30',
   'Personal': 'bg-pink-500/20 text-pink-300 border-pink-500/30',
   'Work/Professional': 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+  'Social': 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+  'Primary': 'bg-pink-500/20 text-pink-300 border-pink-500/30',
+  'Promotions': 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+  'Updates': 'bg-amber-500/20 text-amber-300 border-amber-500/30',
   'Uncategorized': 'bg-gray-500/20 text-gray-300 border-gray-500/30',
 };
 
@@ -151,5 +155,9 @@ export const CATEGORY_ICONS: Record<string, string> = {
   'Notifications': '🔔',
   'Personal': '👤',
   'Work/Professional': '🏢',
+  'Social': '👥',
+  'Primary': '👤',
+  'Promotions': '🏷️',
+  'Updates': '🔔',
   'Uncategorized': '📧',
 };

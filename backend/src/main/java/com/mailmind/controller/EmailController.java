@@ -33,14 +33,34 @@ public class EmailController {
     @GetMapping("/emails")
     public ResponseEntity<EmailListResponse> listEmails(Authentication auth,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String category) {
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "true") boolean inboxOnly) {
         UUID userId = (UUID) auth.getPrincipal();
         GmailAccount acct = gmailAccountRepo.findByUserIdAndIsActiveTrue(userId).orElseThrow();
         Page<EmailSummaryProjection> emails;
-        if (category != null && !category.isEmpty())
-            emails = emailRepo.findProjectedByGmailAccountIdAndAiCategoryOrderByReceivedAtDesc(acct.getId(), category, PageRequest.of(page, size));
-        else
-            emails = emailRepo.findProjectedByGmailAccountIdOrderByReceivedAtDesc(acct.getId(), PageRequest.of(page, size));
+        
+        if (inboxOnly) {
+            if (category == null || category.isEmpty() || "All".equalsIgnoreCase(category)) {
+                emails = emailRepo.findInboxEmails(acct.getId(), PageRequest.of(page, size));
+            } else if ("Primary".equalsIgnoreCase(category)) {
+                emails = emailRepo.findInboxPrimaryEmails(acct.getId(), PageRequest.of(page, size));
+            } else if ("Promotions".equalsIgnoreCase(category)) {
+                emails = emailRepo.findInboxPromotionsEmails(acct.getId(), PageRequest.of(page, size));
+            } else if ("Social".equalsIgnoreCase(category)) {
+                emails = emailRepo.findInboxSocialEmails(acct.getId(), PageRequest.of(page, size));
+            } else if ("Updates".equalsIgnoreCase(category)) {
+                emails = emailRepo.findInboxUpdatesEmails(acct.getId(), PageRequest.of(page, size));
+            } else {
+                emails = emailRepo.findInboxEmailsByCategory(acct.getId(), category, PageRequest.of(page, size));
+            }
+        } else {
+            if (category == null || category.isEmpty() || "All".equalsIgnoreCase(category)) {
+                emails = emailRepo.findProjectedByGmailAccountIdOrderByReceivedAtDesc(acct.getId(), PageRequest.of(page, size));
+            } else {
+                emails = emailRepo.findProjectedByGmailAccountIdAndAiCategoryOrderByReceivedAtDesc(acct.getId(), category, PageRequest.of(page, size));
+            }
+        }
+        
         List<EmailSummaryDto> dtos = emails.getContent().stream().map(this::toSummaryDto).collect(Collectors.toList());
         return ResponseEntity.ok(EmailListResponse.builder().emails(dtos)
             .totalCount((int)emails.getTotalElements()).page(page).pageSize(size).build());
@@ -83,7 +103,7 @@ public class EmailController {
         Long usage = storage.get("usage");
 
         int total = emailRepo.countByGmailAccountId(acct.getId());
-        int unread = emailRepo.countByGmailAccountIdAndIsReadFalse(acct.getId());
+        int unread = emailRepo.countByGmailAccountIdAndIsReadFalseAndInInboxTrue(acct.getId());
         int threads = threadRepo.countByGmailAccountId(acct.getId());
         Page<EmailSummaryProjection> recent = emailRepo.findProjectedByGmailAccountIdOrderByReceivedAtDesc(acct.getId(), PageRequest.of(0, 5));
         // Category breakdown

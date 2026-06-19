@@ -20,6 +20,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.event.EventListener;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.time.Instant;
@@ -219,6 +221,31 @@ public class GmailService {
         syncStateRepo.save(ss);
     }
 
+    @EventListener(ApplicationReadyEvent.class)
+    @Transactional
+    public void initInInboxField() {
+        log.info("Initializing inInbox field for existing email records...");
+        try {
+            List<Email> emails = emailRepo.findByInInboxIsNull();
+            if (!emails.isEmpty()) {
+                log.info("Found {} emails with null inInbox status, updating...", emails.size());
+                for (Email e : emails) {
+                    boolean isInbox = false;
+                    if (e.getGmailLabelIds() != null) {
+                        isInbox = Arrays.asList(e.getGmailLabelIds()).contains("INBOX");
+                    }
+                    e.setInInbox(isInbox);
+                    emailRepo.save(e);
+                }
+                log.info("Finished updating inInbox status.");
+            } else {
+                log.info("No email records with null inInbox status found.");
+            }
+        } catch (Exception e) {
+            log.error("Failed to initialize inInbox field: {}", e.getMessage());
+        }
+    }
+
     public void processPendingEmails(GmailAccount account) {
         log.info("Starting post-sync AI processing for account: {}", account.getGmailEmail());
         List<Email> uncategorized = emailRepo.findUncategorized(account.getId(), org.springframework.data.domain.PageRequest.of(0, 100));
@@ -354,6 +381,7 @@ public class GmailService {
         String from = headers.getOrDefault("from", "");
         
         String initialCategory = determineInitialCategory(message, headers, bodyText);
+        boolean isInbox = labelIds != null && labelIds.contains("INBOX");
         boolean isRead = labelIds != null && !labelIds.contains("UNREAD");
         boolean isStarred = labelIds != null && labelIds.contains("STARRED");
         String[] labelsArray = labelIds != null ? labelIds.toArray(new String[0]) : new String[0];
@@ -365,6 +393,7 @@ public class GmailService {
             .bodyText(bodyText).bodyHtml(bodyHtml)
             .receivedAt(Instant.ofEpochMilli(message.getInternalDate())).internalDate(message.getInternalDate())
             .sizeEstimate(message.getSizeEstimate()).isRead(isRead).isStarred(isStarred)
+            .inInbox(isInbox)
             .gmailLabelIds(labelsArray).aiCategory(initialCategory).build();
 
         emailRepo.save(email);
@@ -421,7 +450,10 @@ public class GmailService {
         }
         
         // 6. Check for Social or Personal labels
-        if (labelIds != null && (labelIds.contains("CATEGORY_SOCIAL") || labelIds.contains("CATEGORY_PERSONAL"))) {
+        if (labelIds != null && labelIds.contains("CATEGORY_SOCIAL")) {
+            return "Social";
+        }
+        if (labelIds != null && labelIds.contains("CATEGORY_PERSONAL")) {
             return "Personal";
         }
         

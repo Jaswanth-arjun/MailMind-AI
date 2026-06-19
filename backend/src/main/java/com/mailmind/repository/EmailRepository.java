@@ -30,6 +30,28 @@ public interface EmailRepository extends JpaRepository<Email, UUID> {
 
     int countByGmailAccountIdAndIsReadFalse(UUID gmailAccountId);
 
+    int countByGmailAccountIdAndIsReadFalseAndInInboxTrue(UUID gmailAccountId);
+
+    List<Email> findByInInboxIsNull();
+
+    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) ORDER BY e.receivedAt DESC")
+    Page<EmailSummaryProjection> findInboxEmails(@Param("accountId") UUID accountId, Pageable pageable);
+
+    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory = :category ORDER BY e.receivedAt DESC")
+    Page<EmailSummaryProjection> findInboxEmailsByCategory(@Param("accountId") UUID accountId, @Param("category") String category, Pageable pageable);
+
+    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND (e.aiCategory IN ('Personal', 'Work/Professional', 'Job/Recruitment') OR e.aiCategory IS NULL) ORDER BY e.receivedAt DESC")
+    Page<EmailSummaryProjection> findInboxPrimaryEmails(@Param("accountId") UUID accountId, Pageable pageable);
+
+    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory = 'Newsletters' ORDER BY e.receivedAt DESC")
+    Page<EmailSummaryProjection> findInboxPromotionsEmails(@Param("accountId") UUID accountId, Pageable pageable);
+
+    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory = 'Social' ORDER BY e.receivedAt DESC")
+    Page<EmailSummaryProjection> findInboxSocialEmails(@Param("accountId") UUID accountId, Pageable pageable);
+
+    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory IN ('Finance', 'Notifications') ORDER BY e.receivedAt DESC")
+    Page<EmailSummaryProjection> findInboxUpdatesEmails(@Param("accountId") UUID accountId, Pageable pageable);
+
     Page<Email> findByGmailAccountIdAndAiCategoryOrderByReceivedAtDesc(
         UUID gmailAccountId, String aiCategory, Pageable pageable);
 

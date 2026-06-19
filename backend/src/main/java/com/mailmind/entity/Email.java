@@ -77,6 +77,9 @@ public class Email {
     @Column(name = "has_attachments")
     private Boolean hasAttachments = false;
 
+    @Column(name = "in_inbox")
+    private Boolean inInbox = true;
+
     @Column(name = "gmail_label_ids")
     private String[] gmailLabelIds;
 
@@ -111,7 +114,7 @@ public class Email {
                  String senderEmail, String senderName, String[] recipientEmails, String[] ccEmails, String[] bccEmails,
                  String subject, String snippet, String bodyText, String bodyHtml, Instant receivedAt, Long internalDate,
                  Integer sizeEstimate, Boolean isRead, Boolean isStarred, Boolean isDraft, Boolean hasAttachments,
-                 String[] gmailLabelIds, String aiSummary, Instant aiSummaryGeneratedAt, String aiCategory,
+                 Boolean inInbox, String[] gmailLabelIds, String aiSummary, Instant aiSummaryGeneratedAt, String aiCategory,
                  Float aiCategoryConfidence, Instant aiCategorizedAt, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.gmailAccount = gmailAccount;
@@ -134,6 +137,7 @@ public class Email {
         this.isStarred = isStarred;
         this.isDraft = isDraft;
         this.hasAttachments = hasAttachments;
+        this.inInbox = inInbox;
         this.gmailLabelIds = gmailLabelIds;
         this.aiSummary = aiSummary;
         this.aiSummaryGeneratedAt = aiSummaryGeneratedAt;
@@ -208,6 +212,9 @@ public class Email {
     public Boolean getHasAttachments() { return hasAttachments; }
     public void setHasAttachments(Boolean hasAttachments) { this.hasAttachments = hasAttachments; }
 
+    public Boolean getInInbox() { return inInbox; }
+    public void setInInbox(Boolean inInbox) { this.inInbox = inInbox; }
+
     public String[] getGmailLabelIds() { return gmailLabelIds; }
     public void setGmailLabelIds(String[] gmailLabelIds) { this.gmailLabelIds = gmailLabelIds; }
 
@@ -254,6 +261,7 @@ public class Email {
         private Boolean isStarred = false;
         private Boolean isDraft = false;
         private Boolean hasAttachments = false;
+        private Boolean inInbox = true;
         private String[] gmailLabelIds;
         private String aiSummary;
         private Instant aiSummaryGeneratedAt;
@@ -281,6 +289,7 @@ public class Email {
         public EmailBuilder isStarred(Boolean isStarred) { this.isStarred = isStarred; return this; }
         public EmailBuilder isDraft(Boolean isDraft) { this.isDraft = isDraft; return this; }
         public EmailBuilder hasAttachments(Boolean hasAttachments) { this.hasAttachments = hasAttachments; return this; }
+        public EmailBuilder inInbox(Boolean inInbox) { this.inInbox = inInbox; return this; }
         public EmailBuilder gmailLabelIds(String[] gmailLabelIds) { this.gmailLabelIds = gmailLabelIds; return this; }
         public EmailBuilder aiSummary(String aiSummary) { this.aiSummary = aiSummary; return this; }
         public EmailBuilder aiSummaryGeneratedAt(Instant aiSummaryGeneratedAt) { this.aiSummaryGeneratedAt = aiSummaryGeneratedAt; return this; }
@@ -310,6 +319,7 @@ public class Email {
             e.setIsStarred(isStarred);
             e.setIsDraft(isDraft);
             e.setHasAttachments(hasAttachments);
+            e.setInInbox(inInbox);
             e.setGmailLabelIds(gmailLabelIds);
             e.setAiSummary(aiSummary);
             e.setAiSummaryGeneratedAt(aiSummaryGeneratedAt);

@@ -30,8 +30,8 @@ export const api = {
   getDashboard: () => apiFetch<Dashboard>('/dashboard'),
 
   // Emails
-  getEmails: (page = 0, size = 20, category?: string) => {
-    const params = new URLSearchParams({ page: String(page), size: String(size) });
+  getEmails: (page = 0, size = 20, category?: string, inboxOnly = true) => {
+    const params = new URLSearchParams({ page: String(page), size: String(size), inboxOnly: String(inboxOnly) });
     if (category) params.set('category', category);
     return apiFetch<{ emails: EmailSummary[]; totalCount: number }>(`/emails?${params}`);
   },
