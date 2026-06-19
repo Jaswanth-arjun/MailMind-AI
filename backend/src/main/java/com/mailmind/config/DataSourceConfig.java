@@ -54,14 +54,15 @@ public class DataSourceConfig {
             }
         }
 
-        // Fallback to H2 in-memory database (Postgres compatibility mode)
-        String h2Url = "jdbc:h2:mem:mailmind;DB_CLOSE_DELAY=-1;MODE=PostgreSQL";
+        // Fallback to file-based H2 database (Postgres compatibility mode)
+        String h2Url = "jdbc:h2:file:./data/mailmind;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE;MODE=PostgreSQL";
         log.info("Using fallback H2 datasource: {}", h2Url);
         HikariConfig cfg = new HikariConfig();
         cfg.setJdbcUrl(h2Url);
         cfg.setDriverClassName("org.h2.Driver");
         cfg.setMaximumPoolSize(5);
         cfg.setConnectionTimeout(10000);
+        cfg.setLeakDetectionThreshold(20000);
         return new HikariDataSource(cfg);
     }
 }

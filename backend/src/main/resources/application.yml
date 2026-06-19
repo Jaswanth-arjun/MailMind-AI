@@ -5,7 +5,8 @@ spring:
   application:
     name: mailmind-api
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:mailmind;DB_CLOSE_DELAY=-1;MODE=PostgreSQL}
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:./data/mailmind;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE;MODE=PostgreSQL}
+    driver-class-name: org.h2.Driver
     username: ${SPRING_DATASOURCE_USERNAME:sa}
     password: ${SPRING_DATASOURCE_PASSWORD:sa}
     hikari:
@@ -20,10 +21,16 @@ spring:
   jpa:
     hibernate:
       ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    generate-ddl: true
     show-sql: false
     properties:
       hibernate:
         format_sql: true
+        hbm2ddl:
+          auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+  sql:
+    init:
+      mode: always
   jackson:
     serialization:
       write-dates-as-timestamps: false
