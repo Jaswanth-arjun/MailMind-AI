@@ -7,17 +7,13 @@ import {
   BarChart3,
   BotMessageSquare,
   CheckCircle2,
-  FileText,
   Inbox,
   Link2,
-  LockKeyhole,
   Mail,
   MessageSquareText,
   Play,
   Search,
-  ShieldCheck,
   Sparkles,
-  Tag,
   WandSparkles,
 } from 'lucide-react';
 import {
