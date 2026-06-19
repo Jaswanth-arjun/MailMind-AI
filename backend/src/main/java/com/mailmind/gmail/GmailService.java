@@ -651,6 +651,28 @@ public class GmailService {
         }
     }
 
+    public void archiveEmail(UUID emailId) {
+        Email email = emailRepo.findById(emailId).orElseThrow();
+        email.setInInbox(false);
+        List<String> labels = new ArrayList<>(Arrays.asList(email.getGmailLabelIds() != null ? email.getGmailLabelIds() : new String[0]));
+        labels.remove("INBOX");
+        email.setGmailLabelIds(labels.toArray(new String[0]));
+        emailRepo.save(email);
+
+        try {
+            GmailAccount acct = email.getGmailAccount();
+            if (acct != null && acct.getIsActive()) {
+                GmailAccount refreshed = refreshAccessToken(acct);
+                Gmail gmail = buildGmailService(refreshed.getAccessToken());
+                ModifyMessageRequest modifyRequest = new ModifyMessageRequest()
+                    .setRemoveLabelIds(Collections.singletonList("INBOX"));
+                gmail.users().messages().modify("me", email.getGmailMessageId(), modifyRequest).execute();
+            }
+        } catch (Exception e) {
+            log.error("Failed to archive email on Gmail API for message {}: {}", email.getGmailMessageId(), e.getMessage());
+        }
+    }
+
 
     private void extractBodyParts(MessagePart part, StringBuilder textBuilder, StringBuilder htmlBuilder) {
         if (part == null) return;

@@ -29,8 +29,14 @@ public class EmailController {
     private final SyncStateRepository syncStateRepo;
     private final JdbcTemplate jdbc;
 
-    public EmailController(EmailRepository er, ThreadRepository tr, GmailAccountRepository gar, GmailService gs, SyncStateRepository ssr, JdbcTemplate jdbc) {
-        this.emailRepo = er; this.threadRepo = tr; this.gmailAccountRepo = gar; this.gmailService = gs; this.syncStateRepo = ssr; this.jdbc = jdbc;
+    public EmailController(EmailRepository er, ThreadRepository tr, GmailAccountRepository gar, GmailService gs,
+            SyncStateRepository ssr, JdbcTemplate jdbc) {
+        this.emailRepo = er;
+        this.threadRepo = tr;
+        this.gmailAccountRepo = gar;
+        this.gmailService = gs;
+        this.syncStateRepo = ssr;
+        this.jdbc = jdbc;
     }
 
     @GetMapping("/emails")
@@ -48,88 +54,174 @@ public class EmailController {
         }
 
         Page<EmailSummaryProjection> emails;
-        
+
         if (inboxOnly) {
             if (category == null || category.isEmpty() || "All".equalsIgnoreCase(category)) {
                 emails = emailRepo.findInboxEmails(acct.getId(), PageRequest.of(page, size));
             } else if ("Primary".equalsIgnoreCase(category)) {
-                emails = emailRepo.findInboxPrimaryEmails(acct.getId(), PageRequest.of(page, size));
+                return ResponseEntity.ok(listPrimaryInboxEmails(acct.getId(), page, size));
             } else if ("Promotions".equalsIgnoreCase(category)) {
-                emails = emailRepo.findInboxPromotionsEmails(acct.getId(), PageRequest.of(page, size));
+                return ResponseEntity.ok(listInboxByGmailLabel(acct.getId(), "CATEGORY_PROMOTIONS", page, size));
             } else if ("Social".equalsIgnoreCase(category)) {
-                emails = emailRepo.findInboxSocialEmails(acct.getId(), PageRequest.of(page, size));
+                return ResponseEntity.ok(listInboxByGmailLabel(acct.getId(), "CATEGORY_SOCIAL", page, size));
             } else if ("Updates".equalsIgnoreCase(category)) {
-                emails = emailRepo.findInboxUpdatesEmails(acct.getId(), PageRequest.of(page, size));
+                return ResponseEntity.ok(listInboxByGmailLabel(acct.getId(), "CATEGORY_UPDATES", page, size));
             } else {
                 emails = emailRepo.findInboxEmailsByCategory(acct.getId(), category, PageRequest.of(page, size));
             }
         } else {
             if (category == null || category.isEmpty() || "All".equalsIgnoreCase(category)) {
-                emails = emailRepo.findProjectedByGmailAccountIdOrderByReceivedAtDesc(acct.getId(), PageRequest.of(page, size));
+                emails = emailRepo.findProjectedByGmailAccountIdOrderByReceivedAtDesc(acct.getId(),
+                        PageRequest.of(page, size));
             } else {
-                emails = emailRepo.findProjectedByGmailAccountIdAndAiCategoryOrderByReceivedAtDesc(acct.getId(), category, PageRequest.of(page, size));
+                emails = emailRepo.findProjectedByGmailAccountIdAndAiCategoryOrderByReceivedAtDesc(acct.getId(),
+                        category, PageRequest.of(page, size));
             }
         }
-        
+
         List<EmailSummaryDto> dtos = emails.getContent().stream().map(this::toSummaryDto).collect(Collectors.toList());
         return ResponseEntity.ok(EmailListResponse.builder().emails(dtos)
-            .totalCount((int)emails.getTotalElements()).page(page).pageSize(size).build());
+                .totalCount((int) emails.getTotalElements()).page(page).pageSize(size).build());
     }
 
     @GetMapping("/email-labels")
     public ResponseEntity<List<String>> listLabels(Authentication auth) {
         UUID userId = (UUID) auth.getPrincipal();
         GmailAccount acct = gmailAccountRepo.findByUserIdAndIsActiveTrue(userId).orElseThrow();
-        List<String[]> labelArrays = jdbc.query("SELECT gmail_label_ids FROM emails WHERE gmail_account_id = ? AND gmail_label_ids IS NOT NULL", (rs, rowNum) -> (String[]) rs.getArray("gmail_label_ids").getArray(), acct.getId());
+        List<String[]> labelArrays = jdbc.query(
+                "SELECT gmail_label_ids FROM emails WHERE gmail_account_id = ? AND gmail_label_ids IS NOT NULL",
+                (rs, rowNum) -> (String[]) rs.getArray("gmail_label_ids").getArray(), acct.getId());
         Set<String> labels = new TreeSet<>();
-        Set<String> hidden = Set.of("INBOX", "SENT", "DRAFT", "TRASH", "SPAM", "UNREAD", "STARRED", "IMPORTANT", "CATEGORY_PERSONAL", "CATEGORY_SOCIAL", "CATEGORY_PROMOTIONS", "CATEGORY_UPDATES", "CATEGORY_FORUMS");
+        Set<String> hidden = Set.of("INBOX", "SENT", "DRAFT", "TRASH", "SPAM", "UNREAD", "STARRED", "IMPORTANT",
+                "CATEGORY_PERSONAL", "CATEGORY_SOCIAL", "CATEGORY_PROMOTIONS", "CATEGORY_UPDATES", "CATEGORY_FORUMS");
         for (String[] arr : labelArrays) {
             if (arr != null) {
                 for (String item : arr) {
-                    if (item != null && !hidden.contains(item)) labels.add(item);
+                    if (item != null && !hidden.contains(item))
+                        labels.add(item);
                 }
             }
         }
         return ResponseEntity.ok(new ArrayList<>(labels));
     }
 
+    private EmailListResponse listPrimaryInboxEmails(UUID accountId, int page, int size) {
+        String primaryCategories[] = { "CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_UPDATES",
+                "CATEGORY_FORUMS" };
+        GmailAccount acct = gmailAccountRepo.findById(accountId).orElseThrow();
+        String ownEmail = acct.getGmailEmail();
+
+        String countSql = "SELECT COUNT(*) FROM emails WHERE gmail_account_id = ? AND ? = ANY(gmail_label_ids) "
+                + "AND (gmail_label_ids IS NULL OR NOT (gmail_label_ids && ARRAY['CATEGORY_PROMOTIONS','CATEGORY_SOCIAL','CATEGORY_UPDATES','CATEGORY_FORUMS']::varchar[])) "
+                + "AND (sender_email IS NULL OR sender_email <> ?)";
+        Integer total = jdbc.queryForObject(countSql, Integer.class, accountId, "INBOX", ownEmail);
+
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT e.id, e.gmail_message_id, e.gmail_thread_id, e.sender_email, e.sender_name, e.subject, e.snippet, e.received_at, e.is_read, e.is_starred, e.ai_summary, e.ai_category, COALESCE(t.message_count, 1) AS thread_message_count "
+                        + "FROM emails e LEFT JOIN threads t ON e.thread_id = t.id "
+                        + "WHERE e.gmail_account_id = ? AND ? = ANY(e.gmail_label_ids) "
+                        + "AND (e.gmail_label_ids IS NULL OR NOT (e.gmail_label_ids && ARRAY['CATEGORY_PROMOTIONS','CATEGORY_SOCIAL','CATEGORY_UPDATES','CATEGORY_FORUMS']::varchar[])) "
+                        + "AND (e.sender_email IS NULL OR e.sender_email <> ?) "
+                        + "ORDER BY e.received_at DESC LIMIT ? OFFSET ?",
+                accountId, "INBOX", ownEmail, size, page * size);
+        List<EmailSummaryDto> dtos = rows.stream().map(this::toSummaryDto).collect(Collectors.toList());
+        return EmailListResponse.builder().emails(dtos).totalCount(total != null ? total : 0).page(page).pageSize(size)
+                .build();
+    }
+
+    private EmailListResponse listInboxByGmailLabel(UUID accountId, String label, int page, int size) {
+        GmailAccount acct = gmailAccountRepo.findById(accountId).orElseThrow();
+        String ownEmail = acct.getGmailEmail();
+        String countSql = "SELECT COUNT(*) FROM emails WHERE gmail_account_id = ? AND 'INBOX' = ANY(gmail_label_ids) "
+                + "AND ? = ANY(gmail_label_ids) AND (sender_email IS NULL OR sender_email <> ?)";
+        Integer total = jdbc.queryForObject(countSql, Integer.class, accountId, label, ownEmail);
+
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT e.id, e.gmail_message_id, e.gmail_thread_id, e.sender_email, e.sender_name, e.subject, e.snippet, e.received_at, e.is_read, e.is_starred, e.ai_summary, e.ai_category, COALESCE(t.message_count, 1) AS thread_message_count "
+                        + "FROM emails e LEFT JOIN threads t ON e.thread_id = t.id "
+                        + "WHERE e.gmail_account_id = ? AND 'INBOX' = ANY(e.gmail_label_ids) AND ? = ANY(e.gmail_label_ids) "
+                        + "AND (e.sender_email IS NULL OR e.sender_email <> ?) "
+                        + "ORDER BY e.received_at DESC LIMIT ? OFFSET ?",
+                accountId, label, ownEmail, size, page * size);
+        List<EmailSummaryDto> dtos = rows.stream().map(this::toSummaryDto).collect(Collectors.toList());
+        return EmailListResponse.builder().emails(dtos).totalCount(total != null ? total : 0).page(page).pageSize(size)
+                .build();
+    }
+
     private EmailListResponse listByGmailLabel(UUID accountId, String mailbox, String label, int page, int size) {
         String gmailLabel = label != null && !label.isBlank() ? label : mailboxToGmailLabel(mailbox);
-        if (gmailLabel == null) gmailLabel = "INBOX";
+        if (gmailLabel == null)
+            gmailLabel = "INBOX";
 
         GmailAccount acct = gmailAccountRepo.findById(accountId).orElseThrow();
         String ownEmail = acct.getGmailEmail();
-        boolean filterSent = !"SENT".equalsIgnoreCase(gmailLabel) && !"DRAFT".equalsIgnoreCase(gmailLabel);
+
+        boolean isPostgres = false;
+        try (java.sql.Connection conn = jdbc.getDataSource().getConnection()) {
+            String dbProduct = conn.getMetaData().getDatabaseProductName();
+            if (dbProduct != null && dbProduct.toLowerCase().contains("postgres")) {
+                isPostgres = true;
+            }
+        } catch (Exception e) {
+            // fallback
+        }
 
         String countSql;
         List<Map<String, Object>> rows;
-        if (filterSent && ownEmail != null) {
-            countSql = "SELECT COUNT(*) FROM emails WHERE gmail_account_id = ? AND ? = ANY(gmail_label_ids) AND (sender_email IS NULL OR sender_email <> ?)";
-            Integer total = jdbc.queryForObject(countSql, Integer.class, accountId, gmailLabel, ownEmail);
+
+        if ("STARRED".equals(gmailLabel)) {
+            countSql = "SELECT COUNT(*) FROM emails WHERE gmail_account_id = ? AND is_starred = true";
+            Integer total = jdbc.queryForObject(countSql, Integer.class, accountId);
             rows = jdbc.queryForList(
-                "SELECT e.id, e.gmail_message_id, e.gmail_thread_id, e.sender_email, e.sender_name, e.subject, e.snippet, e.received_at, e.is_read, e.is_starred, e.ai_summary, e.ai_category, COALESCE(t.message_count, 1) AS thread_message_count "
-                + "FROM emails e LEFT JOIN threads t ON e.thread_id = t.id "
-                + "WHERE e.gmail_account_id = ? AND ? = ANY(e.gmail_label_ids) AND (e.sender_email IS NULL OR e.sender_email <> ?) "
-                + "ORDER BY e.received_at DESC LIMIT ? OFFSET ?",
-                accountId, gmailLabel, ownEmail, size, page * size);
+                    "SELECT e.id, e.gmail_message_id, e.gmail_thread_id, e.sender_email, e.sender_name, e.subject, e.snippet, e.received_at, e.is_read, e.is_starred, e.ai_summary, e.ai_category, COALESCE(t.message_count, 1) AS thread_message_count "
+                            + "FROM emails e LEFT JOIN threads t ON e.thread_id = t.id "
+                            + "WHERE e.gmail_account_id = ? AND e.is_starred = true "
+                            + "ORDER BY e.received_at DESC LIMIT ? OFFSET ?",
+                    accountId, size, page * size);
             List<EmailSummaryDto> dtos = rows.stream().map(this::toSummaryDto).collect(Collectors.toList());
-            return EmailListResponse.builder().emails(dtos).totalCount(total != null ? total : 0).page(page).pageSize(size).build();
+            return EmailListResponse.builder().emails(dtos).totalCount(total != null ? total : 0).page(page)
+                    .pageSize(size).build();
         } else {
-            countSql = "SELECT COUNT(*) FROM emails WHERE gmail_account_id = ? AND ? = ANY(gmail_label_ids)";
-            Integer total = jdbc.queryForObject(countSql, Integer.class, accountId, gmailLabel);
-            rows = jdbc.queryForList(
-                "SELECT e.id, e.gmail_message_id, e.gmail_thread_id, e.sender_email, e.sender_name, e.subject, e.snippet, e.received_at, e.is_read, e.is_starred, e.ai_summary, e.ai_category, COALESCE(t.message_count, 1) AS thread_message_count "
-                + "FROM emails e LEFT JOIN threads t ON e.thread_id = t.id "
-                + "WHERE e.gmail_account_id = ? AND ? = ANY(e.gmail_label_ids) "
-                + "ORDER BY e.received_at DESC LIMIT ? OFFSET ?",
-                accountId, gmailLabel, size, page * size);
-            List<EmailSummaryDto> dtos = rows.stream().map(this::toSummaryDto).collect(Collectors.toList());
-            return EmailListResponse.builder().emails(dtos).totalCount(total != null ? total : 0).page(page).pageSize(size).build();
+            boolean filterSent = !"SENT".equalsIgnoreCase(gmailLabel) && !"DRAFT".equalsIgnoreCase(gmailLabel)
+                    && !"TRASH".equalsIgnoreCase(gmailLabel) && !"SNOOZED".equalsIgnoreCase(gmailLabel);
+
+            String arrayContainsCheck = isPostgres ? "? = ANY(e.gmail_label_ids)"
+                    : "ARRAY_CONTAINS(e.gmail_label_ids, ?)";
+            String countArrayCheck = isPostgres ? "? = ANY(gmail_label_ids)" : "ARRAY_CONTAINS(gmail_label_ids, ?)";
+
+            if (filterSent && ownEmail != null) {
+                countSql = "SELECT COUNT(*) FROM emails WHERE gmail_account_id = ? AND " + countArrayCheck
+                        + " AND (sender_email IS NULL OR sender_email <> ?)";
+                Integer total = jdbc.queryForObject(countSql, Integer.class, accountId, gmailLabel, ownEmail);
+                rows = jdbc.queryForList(
+                        "SELECT e.id, e.gmail_message_id, e.gmail_thread_id, e.sender_email, e.sender_name, e.subject, e.snippet, e.received_at, e.is_read, e.is_starred, e.ai_summary, e.ai_category, COALESCE(t.message_count, 1) AS thread_message_count "
+                                + "FROM emails e LEFT JOIN threads t ON e.thread_id = t.id "
+                                + "WHERE e.gmail_account_id = ? AND " + arrayContainsCheck
+                                + " AND (e.sender_email IS NULL OR e.sender_email <> ?) "
+                                + "ORDER BY e.received_at DESC LIMIT ? OFFSET ?",
+                        accountId, gmailLabel, ownEmail, size, page * size);
+                List<EmailSummaryDto> dtos = rows.stream().map(this::toSummaryDto).collect(Collectors.toList());
+                return EmailListResponse.builder().emails(dtos).totalCount(total != null ? total : 0).page(page)
+                        .pageSize(size).build();
+            } else {
+                countSql = "SELECT COUNT(*) FROM emails WHERE gmail_account_id = ? AND " + countArrayCheck;
+                Integer total = jdbc.queryForObject(countSql, Integer.class, accountId, gmailLabel);
+                rows = jdbc.queryForList(
+                        "SELECT e.id, e.gmail_message_id, e.gmail_thread_id, e.sender_email, e.sender_name, e.subject, e.snippet, e.received_at, e.is_read, e.is_starred, e.ai_summary, e.ai_category, COALESCE(t.message_count, 1) AS thread_message_count "
+                                + "FROM emails e LEFT JOIN threads t ON e.thread_id = t.id "
+                                + "WHERE e.gmail_account_id = ? AND " + arrayContainsCheck + " "
+                                + "ORDER BY e.received_at DESC LIMIT ? OFFSET ?",
+                        accountId, gmailLabel, size, page * size);
+                List<EmailSummaryDto> dtos = rows.stream().map(this::toSummaryDto).collect(Collectors.toList());
+                return EmailListResponse.builder().emails(dtos).totalCount(total != null ? total : 0).page(page)
+                        .pageSize(size).build();
+            }
         }
     }
 
     private String mailboxToGmailLabel(String mailbox) {
-        if (mailbox == null) return null;
+        if (mailbox == null)
+            return null;
         return switch (mailbox.toLowerCase(Locale.ROOT)) {
             case "sent" -> "SENT";
             case "drafts", "draft" -> "DRAFT";
@@ -154,9 +246,10 @@ public class EmailController {
         EmailThread thread = threadRepo.findByGmailAccountIdAndGmailThreadId(acct.getId(), threadId).orElseThrow();
         List<Email> msgs = emailRepo.findByGmailAccountIdAndGmailThreadIdOrderByReceivedAtAsc(acct.getId(), threadId);
         return ResponseEntity.ok(ThreadDetailDto.builder().id(thread.getId()).gmailThreadId(thread.getGmailThreadId())
-            .subject(thread.getSubject()).messageCount(thread.getMessageCount()).lastMessageAt(thread.getLastMessageAt())
-            .participants(thread.getParticipants()).aiSummary(thread.getAiSummary())
-            .messages(msgs.stream().map(this::toDetailDto).collect(Collectors.toList())).build());
+                .subject(thread.getSubject()).messageCount(thread.getMessageCount())
+                .lastMessageAt(thread.getLastMessageAt())
+                .participants(thread.getParticipants()).aiSummary(thread.getAiSummary())
+                .messages(msgs.stream().map(this::toDetailDto).collect(Collectors.toList())).build());
     }
 
     @GetMapping("/dashboard")
@@ -164,9 +257,11 @@ public class EmailController {
         UUID userId = (UUID) auth.getPrincipal();
         GmailAccount acct = gmailAccountRepo.findByUserIdAndIsActiveTrue(userId).orElse(null);
         User user = acct != null ? acct.getUser() : null;
-        if (acct == null) return ResponseEntity.ok(DashboardDto.builder()
-            .user(UserDto.builder().id(userId).gmailConnection(GmailConnectionDto.builder().connected(false).build()).build())
-            .build());
+        if (acct == null)
+            return ResponseEntity.ok(DashboardDto.builder()
+                    .user(UserDto.builder().id(userId)
+                            .gmailConnection(GmailConnectionDto.builder().connected(false).build()).build())
+                    .build());
 
         // Fetch and save Google profile info dynamically if needed
         user = gmailService.fetchAndSaveGoogleUserInfo(acct, user);
@@ -184,26 +279,42 @@ public class EmailController {
         List<Object[]> cats = emailRepo.countByCategory(acct.getId());
         CategoryBreakdownDto cbd = CategoryBreakdownDto.builder().build();
         for (Object[] c : cats) {
-            String cat = (String) c[0]; long cnt = (Long) c[1];
-            if (cat == null) cbd.setUncategorized((int)cnt);
-            else switch(cat) {
-                case "Newsletters": cbd.setNewsletters((int)cnt); break;
-                case "Job/Recruitment": cbd.setJobRecruitment((int)cnt); break;
-                case "Finance": cbd.setFinance((int)cnt); break;
-                case "Notifications": cbd.setNotifications((int)cnt); break;
-                case "Personal": cbd.setPersonal((int)cnt); break;
-                case "Work/Professional": cbd.setWorkProfessional((int)cnt); break;
-                default: cbd.setUncategorized(cbd.getUncategorized() + (int)cnt);
-            }
+            String cat = (String) c[0];
+            long cnt = (Long) c[1];
+            if (cat == null)
+                cbd.setUncategorized((int) cnt);
+            else
+                switch (cat) {
+                    case "Newsletters":
+                        cbd.setNewsletters((int) cnt);
+                        break;
+                    case "Job/Recruitment":
+                        cbd.setJobRecruitment((int) cnt);
+                        break;
+                    case "Finance":
+                        cbd.setFinance((int) cnt);
+                        break;
+                    case "Notifications":
+                        cbd.setNotifications((int) cnt);
+                        break;
+                    case "Personal":
+                        cbd.setPersonal((int) cnt);
+                        break;
+                    case "Work/Professional":
+                        cbd.setWorkProfessional((int) cnt);
+                        break;
+                    default:
+                        cbd.setUncategorized(cbd.getUncategorized() + (int) cnt);
+                }
         }
-        
+
         List<Object[]> topSendersData = emailRepo.findTopSenders(acct.getId(), PageRequest.of(0, 5));
         List<TopSenderDto> topSenders = new ArrayList<>();
         for (Object[] row : topSendersData) {
             String email = (String) row[0];
             String name = (String) row[1];
             long count = (Long) row[2];
-            
+
             String displayName = name;
             if (displayName == null || displayName.trim().isEmpty()) {
                 displayName = email;
@@ -211,12 +322,12 @@ public class EmailController {
             if (displayName == null || displayName.trim().isEmpty()) {
                 displayName = "Unknown";
             }
-            
+
             topSenders.add(TopSenderDto.builder()
-                .name(displayName)
-                .email(email != null ? email : "")
-                .count((int)count)
-                .build());
+                    .name(displayName)
+                    .email(email != null ? email : "")
+                    .count((int) count)
+                    .build());
         }
 
         // Calculate activity counts for last 7 days
@@ -246,19 +357,21 @@ public class EmailController {
         SyncState ss = syncStateRepo.findByGmailAccountId(acct.getId()).orElse(null);
         String syncStatus = ss != null ? ss.getSyncStatus() : "NEVER_SYNCED";
         SyncStatusDto syncStatusDto = ss != null ? SyncStatusDto.builder().status(ss.getSyncStatus())
-            .totalMessagesSynced(ss.getTotalMessagesSynced()).lastSyncAt(ss.getLastSyncCompletedAt())
-            .errorMessage(ss.getErrorMessage()).build() : null;
+                .totalMessagesSynced(ss.getTotalMessagesSynced()).lastSyncAt(ss.getLastSyncCompletedAt())
+                .errorMessage(ss.getErrorMessage()).build() : null;
 
         return ResponseEntity.ok(DashboardDto.builder().totalEmails(total).unreadEmails(unread).totalThreads(threads)
-            .categoryBreakdown(cbd).recentEmails(recent.getContent().stream().map(this::toSummaryDto).collect(Collectors.toList()))
-            .topSenders(topSenders).activity(activity).syncStatus(syncStatusDto)
-            .user(UserDto.builder().id(userId).email(user != null ? user.getEmail() : null)
-                .displayName(user != null ? user.getDisplayName() : null)
-                .avatarUrl(user != null ? user.getAvatarUrl() : null)
-                .gmailConnection(GmailConnectionDto.builder().connected(true).gmailEmail(acct.getGmailEmail())
-                    .lastSyncAt(acct.getLastSyncAt()).totalEmailsSynced(total).syncStatus(syncStatus)
-                    .storageLimit(limit).storageUsage(usage).build()).build())
-            .build());
+                .categoryBreakdown(cbd)
+                .recentEmails(recent.getContent().stream().map(this::toSummaryDto).collect(Collectors.toList()))
+                .topSenders(topSenders).activity(activity).syncStatus(syncStatusDto)
+                .user(UserDto.builder().id(userId).email(user != null ? user.getEmail() : null)
+                        .displayName(user != null ? user.getDisplayName() : null)
+                        .avatarUrl(user != null ? user.getAvatarUrl() : null)
+                        .gmailConnection(GmailConnectionDto.builder().connected(true).gmailEmail(acct.getGmailEmail())
+                                .lastSyncAt(acct.getLastSyncAt()).totalEmailsSynced(total).syncStatus(syncStatus)
+                                .storageLimit(limit).storageUsage(usage).build())
+                        .build())
+                .build());
     }
 
     @PostMapping("/emails/{id}/star")
@@ -279,14 +392,22 @@ public class EmailController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/emails/{id}/archive")
+    public ResponseEntity<Void> archiveEmail(@PathVariable UUID id) {
+        gmailService.archiveEmail(id);
+        return ResponseEntity.ok().build();
+    }
 
     private EmailSummaryDto toSummaryDto(EmailSummaryProjection e) {
         return EmailSummaryDto.builder().id(e.getId()).gmailMessageId(e.getGmailMessageId())
-            .gmailThreadId(e.getGmailThreadId()).senderEmail(e.getSenderEmail()).senderName(e.getSenderName())
-            .subject(e.getSubject()).snippet(e.getSnippet()).receivedAt(e.getReceivedAt())
-            .isRead(e.getIsRead() != null && e.getIsRead()).isStarred(e.getIsStarred() != null && e.getIsStarred())
-            .aiSummary(e.getAiSummary()).aiCategory(e.getAiCategory())
-            .threadMessageCount(e.getThread() != null && e.getThread().getMessageCount() != null ? e.getThread().getMessageCount() : 1).build();
+                .gmailThreadId(e.getGmailThreadId()).senderEmail(e.getSenderEmail()).senderName(e.getSenderName())
+                .subject(e.getSubject()).snippet(e.getSnippet()).receivedAt(e.getReceivedAt())
+                .isRead(e.getIsRead() != null && e.getIsRead()).isStarred(e.getIsStarred() != null && e.getIsStarred())
+                .aiSummary(e.getAiSummary()).aiCategory(e.getAiCategory())
+                .threadMessageCount(e.getThread() != null && e.getThread().getMessageCount() != null
+                        ? e.getThread().getMessageCount()
+                        : 1)
+                .build();
     }
 
     private EmailSummaryDto toSummaryDto(Map<String, Object> e) {
@@ -294,21 +415,22 @@ public class EmailController {
         Instant date = receivedAt instanceof Timestamp ts ? ts.toInstant() : (Instant) receivedAt;
         Number threadCount = (Number) e.get("thread_message_count");
         return EmailSummaryDto.builder().id((UUID) e.get("id")).gmailMessageId((String) e.get("gmail_message_id"))
-            .gmailThreadId((String) e.get("gmail_thread_id")).senderEmail((String) e.get("sender_email")).senderName((String) e.get("sender_name"))
-            .subject((String) e.get("subject")).snippet((String) e.get("snippet")).receivedAt(date)
-            .isRead(Boolean.TRUE.equals(e.get("is_read"))).isStarred(Boolean.TRUE.equals(e.get("is_starred")))
-            .aiSummary((String) e.get("ai_summary")).aiCategory((String) e.get("ai_category"))
-            .threadMessageCount(threadCount != null ? threadCount.intValue() : 1).build();
+                .gmailThreadId((String) e.get("gmail_thread_id")).senderEmail((String) e.get("sender_email"))
+                .senderName((String) e.get("sender_name"))
+                .subject((String) e.get("subject")).snippet((String) e.get("snippet")).receivedAt(date)
+                .isRead(Boolean.TRUE.equals(e.get("is_read"))).isStarred(Boolean.TRUE.equals(e.get("is_starred")))
+                .aiSummary((String) e.get("ai_summary")).aiCategory((String) e.get("ai_category"))
+                .threadMessageCount(threadCount != null ? threadCount.intValue() : 1).build();
     }
 
     private EmailDetailDto toDetailDto(Email e) {
         return EmailDetailDto.builder().id(e.getId()).gmailMessageId(e.getGmailMessageId())
-            .gmailThreadId(e.getGmailThreadId()).senderEmail(e.getSenderEmail()).senderName(e.getSenderName())
-            .recipientEmails(e.getRecipientEmails()).ccEmails(e.getCcEmails())
-            .subject(e.getSubject()).snippet(e.getSnippet()).bodyText(e.getBodyText()).bodyHtml(e.getBodyHtml())
-            .receivedAt(e.getReceivedAt()).isRead(e.getIsRead() != null && e.getIsRead())
-            .isStarred(e.getIsStarred() != null && e.getIsStarred())
-            .hasAttachments(e.getHasAttachments() != null && e.getHasAttachments())
-            .gmailLabelIds(e.getGmailLabelIds()).aiSummary(e.getAiSummary()).aiCategory(e.getAiCategory()).build();
+                .gmailThreadId(e.getGmailThreadId()).senderEmail(e.getSenderEmail()).senderName(e.getSenderName())
+                .recipientEmails(e.getRecipientEmails()).ccEmails(e.getCcEmails())
+                .subject(e.getSubject()).snippet(e.getSnippet()).bodyText(e.getBodyText()).bodyHtml(e.getBodyHtml())
+                .receivedAt(e.getReceivedAt()).isRead(e.getIsRead() != null && e.getIsRead())
+                .isStarred(e.getIsStarred() != null && e.getIsStarred())
+                .hasAttachments(e.getHasAttachments() != null && e.getHasAttachments())
+                .gmailLabelIds(e.getGmailLabelIds()).aiSummary(e.getAiSummary()).aiCategory(e.getAiCategory()).build();
     }
 }

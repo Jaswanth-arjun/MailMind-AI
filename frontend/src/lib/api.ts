@@ -19,7 +19,8 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   };
   const res = await fetch(url, { ...options, headers });
   if (!res.ok) throw new Error(`API Error ${res.status}: ${await res.text()}`);
-  return res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : ({} as T);
 }
 
 export const api = {
@@ -52,6 +53,9 @@ export const api = {
 
   snoozeEmail: (id: string) =>
     apiFetch<void>(`/emails/${id}/snooze`, { method: 'POST' }),
+
+  archiveEmail: (id: string) =>
+    apiFetch<void>(`/emails/${id}/archive`, { method: 'POST' }),
 
 
   // Sync
