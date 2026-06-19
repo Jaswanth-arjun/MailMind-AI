@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '@/lib/types';
 import type { EmailSummary } from '@/lib/types';
-import { Star, Archive, Trash2 } from 'lucide-react';
+import { Star, Clock, Trash2 } from 'lucide-react';
 
 const categories = ['Primary', 'Promotions', 'Social', 'Updates'];
 
@@ -12,8 +12,8 @@ function formatTime(iso: string) {
   const d = new Date(iso);
   const now = new Date();
   const diff = now.getTime() - d.getTime();
-  if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
@@ -102,15 +102,15 @@ export default function EmailsPage() {
     }
   };
 
-  const handleArchive = async (e: React.MouseEvent, id: string) => {
+  const handleSnooze = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
     const previousEmails = [...emails];
     setEmails(prev => prev.filter(email => email.id !== id));
     try {
-      await api.archiveEmail(id);
+      await api.snoozeEmail(id);
     } catch (err) {
-      console.error('Failed to archive email:', err);
+      console.error('Failed to snooze email:', err);
       setEmails(previousEmails);
     }
   };
@@ -135,7 +135,7 @@ export default function EmailsPage() {
         {categories.map(c => {
           const active = filter === c;
           let activeStyle = '';
-          switch(c) {
+          switch (c) {
             case 'Primary':
               activeStyle = 'text-blue-400 border-blue-500 bg-blue-500/5';
               break;
@@ -197,7 +197,7 @@ export default function EmailsPage() {
               <div className="flex-1 min-w-0 pr-24">
                 <div className="flex items-center justify-between mb-1">
                   <span className={`font-medium ${!email.isRead ? 'text-text' : 'text-text-muted'}`}>{email.senderName || email.senderEmail || 'Unknown sender'}</span>
-                  
+
                   {/* Time */}
                   <span className="text-xs text-text-dim group-hover:opacity-0 transition-opacity duration-200 select-none">
                     {formatTime(email.receivedAt)}
@@ -226,11 +226,11 @@ export default function EmailsPage() {
                   <Star className={`w-4 h-4 ${email.isStarred ? 'fill-[#fbbf24] text-[#fbbf24]' : ''}`} />
                 </button>
                 <button
-                  onClick={(e) => handleArchive(e, email.id)}
+                  onClick={(e) => handleSnooze(e, email.id)}
                   className="p-2 hover:bg-[#1f2642] rounded-lg text-[#a3b3d4] hover:text-[#10b981] transition-all duration-200"
-                  title="Archive"
+                  title="Snooze"
                 >
-                  <Archive className="w-4 h-4" />
+                  <Clock className="w-4 h-4" />
                 </button>
                 <button
                   onClick={(e) => handleTrash(e, email.id)}
