@@ -107,7 +107,7 @@ public class AiService {
     public String chatWithContext(String question, String emailContext, String chatHistory) {
         String prompt = "You are an advanced Email Intelligence Assistant. Your role is to answer user queries using only their email data.\n\n"
             + "CRITICAL INSTRUCTIONS:\n"
-            + "1. EXCLUSIVE KNOWLEDGE BASE: Base your answer *strictly* on the provided Email Context. Do not use external facts, assumptions, or guess. If the context does not contain the answer, say: \"I couldn't find any information about that in your emails.\"\n"
+            + "1. EXCLUSIVE KNOWLEDGE BASE: Answer the user's question using the provided Email Context. You are encouraged to count, summarize, and analyze the emails present in the context to answer count, summary, or details queries. Do not assume or invent facts outside the context. If the context does not contain any relevant emails or information to answer the question, say: \"I couldn't find any information about that in your emails.\"\n"
             + "2. SOURCE CLARITY: For *every* claim, summary point, or list item you write, you must cite the source email. Use a clear format at the end of the sentence or paragraph, e.g., \"[Source: 'Subject Line' from sender@example.com on YYYY-MM-DD]\". Do not write anything without attributing it to a specific source.\n"
             + "3. CROSS-EMAIL REASONING: Synthesize information from multiple emails and threads. Group similar topics together. If the query asks for newsletter/tech news or updates from multiple sources, present a clean, organized list, removing duplicate stories where the same event/story appears in different emails, and attribute the unified points to all their source emails.\n"
             + "4. CONVERSATIONAL CONTEXT: Use the 'Previous Chat' history to understand follow-up questions, pronouns (he/she/it/they), or context, but always answer based on the 'Email Context'.\n\n"
@@ -153,11 +153,16 @@ public class AiService {
     /** Get text embedding from Gemini */
     public float[] getEmbedding(String text) {
         try {
-            String url = "/v1beta2/models/" + embeddingModel + ":embedText";
-            Map<String, Object> body = Map.of("instances", List.of(Map.of("content", truncate(text, 5000))));
+            String url = "/v1beta/models/" + embeddingModel + ":embedContent";
+            Map<String, Object> part = Map.of("text", truncate(text, 5000));
+            Map<String, Object> content = Map.of("parts", List.of(part));
+            Map<String, Object> body = Map.of(
+                "content", content,
+                "outputDimensionality", 768
+            );
             String resp = geminiClient.post().uri(url)
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + geminiKey)
+                .header("x-goog-api-key", geminiKey)
                 .bodyValue(body).retrieve().bodyToMono(String.class).block();
             JsonNode node = mapper.readTree(resp);
             float[] embedding = parseEmbedding(node);
@@ -205,14 +210,20 @@ public class AiService {
     /** Call Gemini API */
     private String callGemini(String prompt) {
         try {
-            String url = "/v1beta2/models/" + geminiModel + ":generateText";
-            Map<String, Object> body = Map.of(
-                "instances", List.of(Map.of("content", prompt)),
+            String url = "/v1beta/models/" + geminiModel + ":generateContent";
+            Map<String, Object> part = Map.of("text", prompt);
+            Map<String, Object> content = Map.of("parts", List.of(part));
+            Map<String, Object> genConfig = Map.of(
                 "temperature", 0.3,
                 "maxOutputTokens", 2048
             );
-            String resp = geminiClient.post().uri(url).header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + geminiKey)
+            Map<String, Object> body = Map.of(
+                "contents", List.of(content),
+                "generationConfig", genConfig
+            );
+            String resp = geminiClient.post().uri(url)
+                .header("Content-Type", "application/json")
+                .header("x-goog-api-key", geminiKey)
                 .bodyValue(body).retrieve().bodyToMono(String.class).block();
             JsonNode node = mapper.readTree(resp);
             String result = parseTextResponse(node);

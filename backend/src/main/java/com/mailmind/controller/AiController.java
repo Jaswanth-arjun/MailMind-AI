@@ -168,5 +168,13 @@ public class AiController {
         
         return ResponseEntity.ok(SendResponse.builder().success(true).gmailMessageId(msgId).message("Reply sent successfully").build());
     }
+
+    @PostMapping("/ai/reindex")
+    public ResponseEntity<Map<String, Object>> reindex(Authentication auth) {
+        UUID userId = (UUID) auth.getPrincipal();
+        GmailAccount acct = gmailAccountRepo.findByUserIdAndIsActiveTrue(userId).orElseThrow();
+        int count = ragService.reindexAllEmails(acct.getId());
+        return ResponseEntity.ok(Map.of("success", true, "count", count));
+    }
 }
 

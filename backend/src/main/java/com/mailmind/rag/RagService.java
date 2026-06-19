@@ -31,6 +31,7 @@ public class RagService {
 
     private final AiService aiService;
     private final JdbcTemplate jdbc;
+    private final EmailRepository emailRepo;
     private final ChatSessionRepository sessionRepo;
     private final ChatMessageRepository messageRepo;
     private final GmailAccountRepository gmailAccountRepo;
@@ -40,6 +41,7 @@ public class RagService {
                       ChatSessionRepository sr, ChatMessageRepository mr, GmailAccountRepository gar) {
         this.aiService = ai;
         this.jdbc = jdbc;
+        this.emailRepo = er;
         this.sessionRepo = sr;
         this.messageRepo = mr;
         this.gmailAccountRepo = gar;
@@ -63,6 +65,23 @@ public class RagService {
                 email.getThread() != null ? email.getThread().getId() : null,
                 i, chunks.get(i), vecStr, metadata);
         }
+    }
+
+    /** Re-index all emails for the given Gmail account */
+    public int reindexAllEmails(UUID gmailAccountId) {
+        jdbc.update("DELETE FROM embeddings WHERE gmail_account_id = ?", gmailAccountId);
+        List<Email> emails = emailRepo.findByGmailAccountIdOrderByReceivedAtDesc(gmailAccountId, org.springframework.data.domain.Pageable.unpaged()).getContent();
+        log.info("Re-indexing {} emails for account ID {}", emails.size(), gmailAccountId);
+        int successCount = 0;
+        for (Email email : emails) {
+            try {
+                embedEmail(email);
+                successCount++;
+            } catch (Exception e) {
+                log.error("Failed to embed email {} during re-indexing: {}", email.getId(), e.getMessage());
+            }
+        }
+        return successCount;
     }
 
     /** Chat query: classify, retrieve hybrid email evidence, then answer. */
@@ -138,7 +157,7 @@ public class RagService {
                 plan.category = normalizeCategory(textOrNull(planNode, "category"));
                 if (planNode.has("timeRangeDays") && !planNode.get("timeRangeDays").isNull()) {
                     int days = planNode.get("timeRangeDays").asInt();
-                    if (days > 0 && days <= 3650) plan.timeRangeDays = days;
+                    if (days >= 0 && days <= 3650) plan.timeRangeDays = days;
                 }
                 if (planNode.has("keywords") && planNode.get("keywords").isArray()) {
                     for (JsonNode kw : planNode.get("keywords")) {
@@ -181,8 +200,12 @@ public class RagService {
             args.add(plan.category);
         }
         if (plan.timeRangeDays != null) {
-            sql.append(" AND received_at >= CURRENT_TIMESTAMP - ? * INTERVAL '1 day'");
-            args.add(plan.timeRangeDays);
+            if (plan.timeRangeDays == 0) {
+                sql.append(" AND received_at >= CURRENT_DATE");
+            } else {
+                sql.append(" AND received_at >= CURRENT_TIMESTAMP - ? * INTERVAL '1 day'");
+                args.add(plan.timeRangeDays);
+            }
         }
         if (!plan.keywords.isEmpty()) {
             sql.append(" AND (");
@@ -226,8 +249,12 @@ public class RagService {
                 args.add(plan.category);
             }
             if (plan.timeRangeDays != null) {
-                sql.append(" AND em.received_at >= CURRENT_TIMESTAMP - ? * INTERVAL '1 day'");
-                args.add(plan.timeRangeDays);
+                if (plan.timeRangeDays == 0) {
+                    sql.append(" AND em.received_at >= CURRENT_DATE");
+                } else {
+                    sql.append(" AND em.received_at >= CURRENT_TIMESTAMP - ? * INTERVAL '1 day'");
+                    args.add(plan.timeRangeDays);
+                }
             }
         }
 
@@ -331,7 +358,8 @@ public class RagService {
 
     private boolean looksMailRelated(String question) {
         String text = question.toLowerCase();
-        return text.matches(".*\\b(email|mail|inbox|sender|subject|thread|message|receipt|invoice|newsletter|gmail|sent|received|reply|attachment|deadline|meeting|interview|offer|recruiter|follow up|follow-up)\\b.*");
+        return text.matches(".*\\b(email|emails|mail|mails|inbox|inboxes|sender|senders|subject|subjects|thread|threads|message|messages|receipt|receipts|invoice|invoices|newsletter|newsletters|gmail|gmails|sent|received|recieved|recieve|recive|reply|replies|attachment|attachments|deadline|deadlines|meeting|meetings|interview|interviews|offer|offers|recruiter|recruiters|follow up|follow-up|ask|question)\\b.*")
+            || text.contains("email") || text.contains("mail") || text.contains("inbox") || text.contains("msg");
     }
 
     private List<String> fallbackKeywords(String question) {

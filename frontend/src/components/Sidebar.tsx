@@ -19,9 +19,7 @@ import {
   PenSquare, 
   Reply, 
   Settings, 
-  Layers,
-  Users,
-  Bell
+  Layers
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -32,7 +30,6 @@ export default function Sidebar() {
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
   const [storageLimit, setStorageLimit] = useState<number>(15 * 1024 * 1024 * 1024);
   const [storageUsage, setStorageUsage] = useState<number>(0);
-  const [activeInboxCategory, setActiveInboxCategory] = useState('Primary');
 
   useEffect(() => {
     // Try to load dynamic email/unread count if available
@@ -66,12 +63,7 @@ export default function Sidebar() {
       });
   }, []);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && pathname === '/dashboard/emails') {
-      const category = new URLSearchParams(window.location.search).get('category');
-      setActiveInboxCategory(category || 'Primary');
-    }
-  }, [pathname]);
+
 
   const mainNavItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -86,12 +78,7 @@ export default function Sidebar() {
     { href: '/dashboard/labels', label: 'Labels', icon: Bookmark },
   ];
 
-  const inboxCategoryItems = [
-    { href: '/dashboard/emails?category=Primary', label: 'Primary', category: 'Primary', icon: Inbox },
-    { href: '/dashboard/emails?category=Promotions', label: 'Promotions', category: 'Promotions', icon: Tag },
-    { href: '/dashboard/emails?category=Social', label: 'Social', category: 'Social', icon: Users },
-    { href: '/dashboard/emails?category=Updates', label: 'Updates', category: 'Updates', icon: Bell },
-  ];
+
 
   const aiToolsItems = [
     { href: '/dashboard/chat', label: 'AI Assistant', icon: Sparkles, badge: 'New', badgeColor: 'bg-[#6366f1]/20 text-[#818cf8] border-[#6366f1]/30' },
@@ -111,9 +98,7 @@ export default function Sidebar() {
     return pathname?.startsWith(href);
   };
 
-  const isInboxCategoryActive = (category: string) => {
-    return pathname === '/dashboard/emails' && activeInboxCategory === category;
-  };
+
 
   const formatBytesToGB = (bytes: number) => {
     return (bytes / (1024 * 1024 * 1024)).toFixed(1);
@@ -164,29 +149,6 @@ export default function Sidebar() {
                     </span>
                   )}
                 </Link>
-                {item.href === '/dashboard/emails' && active && (
-                  <div className="mt-1.5 ml-4 space-y-1 border-l border-[#1f2940] pl-3">
-                    {inboxCategoryItems.map((categoryItem) => {
-                      const CategoryIcon = categoryItem.icon;
-                      const categoryActive = isInboxCategoryActive(categoryItem.category);
-                      return (
-                        <Link
-                          key={categoryItem.category}
-                          href={categoryItem.href}
-                          onClick={() => setActiveInboxCategory(categoryItem.category)}
-                          className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-all
-                            ${categoryActive
-                              ? 'bg-[#111827] text-white'
-                              : 'text-[#7b89a6] hover:bg-[#111520] hover:text-white'
-                            }`}
-                        >
-                          <CategoryIcon className={`h-3.5 w-3.5 ${categoryActive ? 'text-[#818cf8]' : 'text-[#64748b]'}`} />
-                          <span>{categoryItem.label}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             );
           })}

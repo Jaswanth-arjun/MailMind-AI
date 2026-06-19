@@ -54,8 +54,8 @@ google:
 # AI APIs
 gemini:
   api-key: ${GEMINI_API_KEY:}
-  model: gemini-1.5-flash
-  embedding-model: text-embedding-004
+  model: gemini-2.5-flash
+  embedding-model: gemini-embedding-2
 
 nvidia:
   nim:
