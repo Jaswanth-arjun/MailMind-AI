@@ -31,6 +31,7 @@ public class GmailAccount {
     @Column(name = "token_expires_at")
     private Instant tokenExpiresAt;
 
+    @Column(name = "scopes", columnDefinition = "TEXT")
     private String scopes;
 
     @Column(name = "connected_at")
