@@ -8,8 +8,6 @@ export default function SettingsPage() {
   const router = useRouter();
   const [dashboardData, setDashboardData] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
-  const [reindexing, setReindexing] = useState(false);
-  const [reindexResult, setReindexResult] = useState<string | null>(null);
 
   useEffect(() => {
     api.getDashboard()
@@ -21,23 +19,6 @@ export default function SettingsPage() {
   const handleDisconnect = () => {
     localStorage.removeItem('mailmind_token');
     router.push('/');
-  };
-
-  const handleReindex = async () => {
-    setReindexing(true);
-    setReindexResult(null);
-    try {
-      const res = await api.reindex();
-      if (res.success) {
-        setReindexResult(`Successfully re-indexed ${res.count} emails!`);
-      } else {
-        setReindexResult('Failed to re-index emails.');
-      }
-    } catch (err: any) {
-      setReindexResult(`Error: ${err.message || err}`);
-    } finally {
-      setReindexing(false);
-    }
   };
 
   const gmailEmail = dashboardData?.user?.gmailConnection?.gmailEmail || dashboardData?.user?.email || '';
@@ -70,31 +51,6 @@ export default function SettingsPage() {
           <div className="glass rounded-xl p-3"><div className="text-lg font-bold">{emailsSynced.toLocaleString()}</div><div className="text-xs text-text-muted">Emails Synced</div></div>
           <div className="glass rounded-xl p-3"><div className="text-lg font-bold">{totalThreads.toLocaleString()}</div><div className="text-xs text-text-muted">Threads</div></div>
           <div className="glass rounded-xl p-3"><div className="text-lg font-bold">{lastSync}</div><div className="text-xs text-text-muted">Last Sync</div></div>
-        </div>
-      </div>
-
-      {/* RAG Search & AI Re-indexing */}
-      <div className="card mb-6">
-        <h2 className="text-lg font-semibold mb-2">RAG Search & Embeddings</h2>
-        <p className="text-sm text-text-muted mb-4">
-          MailMind AI converts your emails into vector embeddings to power semantically accurate search queries. 
-          If you just connected or synced, click below to re-index all messages with the new embedding model.
-        </p>
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={handleReindex} 
-              disabled={reindexing} 
-              className={`btn-primary text-sm ${reindexing ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              {reindexing ? 'Re-indexing (embedding emails)...' : 'Re-index All Emails'}
-            </button>
-          </div>
-          {reindexResult && (
-            <div className={`text-sm p-3 rounded-xl ${reindexResult.startsWith('Error') ? 'bg-danger/10 text-danger border border-danger/20' : 'bg-success/10 text-success border border-success/20'}`}>
-              {reindexResult}
-            </div>
-          )}
         </div>
       </div>
 

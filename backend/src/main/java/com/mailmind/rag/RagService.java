@@ -36,6 +36,7 @@ public class RagService {
     private final ChatMessageRepository messageRepo;
     private final GmailAccountRepository gmailAccountRepo;
     private final ObjectMapper mapper = new ObjectMapper();
+    private Boolean vectorStoreAvailable;
 
     public RagService(AiService ai, JdbcTemplate jdbc, EmailRepository er,
                       ChatSessionRepository sr, ChatMessageRepository mr, GmailAccountRepository gar) {
@@ -49,6 +50,7 @@ public class RagService {
 
     /** Create embeddings for an email's body text. */
     public void embedEmail(Email email) {
+        if (!isVectorStoreAvailable()) return;
         String text = email.getBodyText();
         if (text == null || text.isBlank()) return;
 
@@ -69,7 +71,8 @@ public class RagService {
 
     /** Re-index all emails for the given Gmail account */
     public int reindexAllEmails(UUID gmailAccountId) {
-        jdbc.update("DELETE FROM embeddings WHERE gmail_account_id = ?", gmailAccountId);
+        if (!isVectorStoreAvailable()) return 0;
+        deleteEmbeddingsForAccount(gmailAccountId);
         List<Email> emails = emailRepo.findByGmailAccountIdOrderByReceivedAtDesc(gmailAccountId, org.springframework.data.domain.Pageable.unpaged()).getContent();
         log.info("Re-indexing {} emails for account ID {}", emails.size(), gmailAccountId);
         int successCount = 0;
@@ -82,6 +85,52 @@ public class RagService {
             }
         }
         return successCount;
+    }
+
+    /** Embed newest emails that do not yet have vector chunks. */
+    public int embedMissingEmails(UUID gmailAccountId, int limit) {
+        if (!isVectorStoreAvailable()) return 0;
+        List<UUID> ids = jdbc.queryForList(
+            "SELECT e.id FROM emails e "
+            + "WHERE e.gmail_account_id = ? "
+            + "AND e.body_text IS NOT NULL AND LENGTH(TRIM(e.body_text)) > 0 "
+            + "AND NOT EXISTS (SELECT 1 FROM embeddings emb WHERE emb.email_id = e.id) "
+            + "ORDER BY e.received_at DESC LIMIT ?",
+            UUID.class,
+            gmailAccountId,
+            limit);
+        int successCount = 0;
+        for (UUID id : ids) {
+            try {
+                Optional<Email> email = emailRepo.findById(id);
+                if (email.isPresent()) {
+                    embedEmail(email.get());
+                    successCount++;
+                }
+            } catch (Exception e) {
+                log.error("Failed to auto-embed email {}: {}", id, e.getMessage());
+            }
+        }
+        if (successCount > 0) {
+            log.info("Auto-embedded {} newest emails for account ID {}", successCount, gmailAccountId);
+        }
+        return successCount;
+    }
+
+    private void deleteEmbeddingsForAccount(UUID gmailAccountId) {
+        jdbc.update("DELETE FROM embeddings WHERE gmail_account_id = ?", gmailAccountId);
+    }
+
+    private boolean isVectorStoreAvailable() {
+        if (vectorStoreAvailable != null) return vectorStoreAvailable;
+        try {
+            jdbc.queryForObject("SELECT COUNT(*) FROM embeddings", Integer.class);
+            vectorStoreAvailable = true;
+        } catch (Exception e) {
+            vectorStoreAvailable = false;
+            log.warn("Vector embeddings table is unavailable; RAG embeddings will be skipped until pgvector schema is available: {}", e.getMessage());
+        }
+        return vectorStoreAvailable;
     }
 
     /** Chat query: classify, retrieve hybrid email evidence, then answer. */

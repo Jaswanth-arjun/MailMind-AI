@@ -248,29 +248,37 @@ public class GmailService {
 
     public void processPendingEmails(GmailAccount account) {
         log.info("Starting post-sync AI processing for account: {}", account.getGmailEmail());
-        List<Email> uncategorized = emailRepo.findUncategorized(account.getId(), org.springframework.data.domain.PageRequest.of(0, 100));
-        log.info("Found {} uncategorized emails to process", uncategorized.size());
-        for (Email email : uncategorized) {
-            try {
-                // Categorize
-                Map<String, Object> catResult = aiService.categorizeEmail(email.getBodyText(), email.getSubject(), email.getSenderEmail());
-                email.setAiCategory((String) catResult.get("category"));
-                email.setAiCategoryConfidence(((Number) catResult.get("confidence")).floatValue());
-                email.setAiCategorizedAt(Instant.now());
-                
-                // Summarize
-                String summary = aiService.summarizeEmail(email.getBodyText(), email.getSubject(), email.getSenderEmail());
-                email.setAiSummary(summary);
-                email.setAiSummaryGeneratedAt(Instant.now());
-                
-                emailRepo.save(email);
-                
-                // Embed for RAG
-                ragService.embedEmail(email);
-            } catch (Exception e) {
-                log.error("Failed to process email {} with AI: {}", email.getId(), e.getMessage());
+        int totalProcessed = 0;
+        int batchSize = 100;
+        int maxBatches = 10;
+        for (int batch = 0; batch < maxBatches; batch++) {
+            List<Email> uncategorized = emailRepo.findUncategorized(account.getId(), org.springframework.data.domain.PageRequest.of(0, batchSize));
+            if (uncategorized.isEmpty()) break;
+            log.info("Processing {} newest uncategorized emails for account {}", uncategorized.size(), account.getGmailEmail());
+            int processedThisBatch = 0;
+            for (Email email : uncategorized) {
+                try {
+                    Map<String, Object> catResult = aiService.categorizeEmail(email.getBodyText(), email.getSubject(), email.getSenderEmail());
+                    email.setAiCategory((String) catResult.get("category"));
+                    email.setAiCategoryConfidence(((Number) catResult.get("confidence")).floatValue());
+                    email.setAiCategorizedAt(Instant.now());
+
+                    String summary = aiService.summarizeEmail(email.getBodyText(), email.getSubject(), email.getSenderEmail());
+                    email.setAiSummary(summary);
+                    email.setAiSummaryGeneratedAt(Instant.now());
+
+                    emailRepo.save(email);
+                    ragService.embedEmail(email);
+                    processedThisBatch++;
+                } catch (Exception e) {
+                    log.error("Failed to process email {} with AI: {}", email.getId(), e.getMessage());
+                }
             }
+            totalProcessed += processedThisBatch;
+            if (processedThisBatch == 0 || uncategorized.size() < batchSize) break;
         }
+        int embedded = ragService.embedMissingEmails(account.getId(), 1000);
+        log.info("Post-sync AI processing complete for {}. Processed: {}, auto-embedded missing: {}", account.getGmailEmail(), totalProcessed, embedded);
     }
 
     private void performInitialSync(Gmail gmail, GmailAccount account, SyncState ss) throws IOException, InterruptedException {
@@ -567,6 +575,82 @@ public class GmailService {
             return account;
         }
     }
+
+    public void toggleStar(UUID emailId, boolean star) {
+        Email email = emailRepo.findById(emailId).orElseThrow();
+        email.setIsStarred(star);
+        List<String> labels = new ArrayList<>(Arrays.asList(email.getGmailLabelIds() != null ? email.getGmailLabelIds() : new String[0]));
+        if (star) {
+            if (!labels.contains("STARRED")) labels.add("STARRED");
+        } else {
+            labels.remove("STARRED");
+        }
+        email.setGmailLabelIds(labels.toArray(new String[0]));
+        emailRepo.save(email);
+
+        try {
+            GmailAccount acct = email.getGmailAccount();
+            if (acct != null && acct.getIsActive()) {
+                GmailAccount refreshed = refreshAccessToken(acct);
+                Gmail gmail = buildGmailService(refreshed.getAccessToken());
+                ModifyMessageRequest modifyRequest = new ModifyMessageRequest();
+                if (star) {
+                    modifyRequest.setAddLabelIds(Collections.singletonList("STARRED"));
+                } else {
+                    modifyRequest.setRemoveLabelIds(Collections.singletonList("STARRED"));
+                }
+                gmail.users().messages().modify("me", email.getGmailMessageId(), modifyRequest).execute();
+            }
+        } catch (Exception e) {
+            log.error("Failed to update star on Gmail API for message {}: {}", email.getGmailMessageId(), e.getMessage());
+        }
+    }
+
+    public void trashEmail(UUID emailId) {
+        Email email = emailRepo.findById(emailId).orElseThrow();
+        email.setInInbox(false);
+        List<String> labels = new ArrayList<>(Arrays.asList(email.getGmailLabelIds() != null ? email.getGmailLabelIds() : new String[0]));
+        labels.remove("INBOX");
+        if (!labels.contains("TRASH")) labels.add("TRASH");
+        email.setGmailLabelIds(labels.toArray(new String[0]));
+        emailRepo.save(email);
+
+        try {
+            GmailAccount acct = email.getGmailAccount();
+            if (acct != null && acct.getIsActive()) {
+                GmailAccount refreshed = refreshAccessToken(acct);
+                Gmail gmail = buildGmailService(refreshed.getAccessToken());
+                gmail.users().messages().trash("me", email.getGmailMessageId()).execute();
+            }
+        } catch (Exception e) {
+            log.error("Failed to trash email on Gmail API for message {}: {}", email.getGmailMessageId(), e.getMessage());
+        }
+    }
+
+    public void snoozeEmail(UUID emailId) {
+        Email email = emailRepo.findById(emailId).orElseThrow();
+        email.setInInbox(false);
+        List<String> labels = new ArrayList<>(Arrays.asList(email.getGmailLabelIds() != null ? email.getGmailLabelIds() : new String[0]));
+        labels.remove("INBOX");
+        if (!labels.contains("SNOOZED")) labels.add("SNOOZED");
+        email.setGmailLabelIds(labels.toArray(new String[0]));
+        emailRepo.save(email);
+
+        try {
+            GmailAccount acct = email.getGmailAccount();
+            if (acct != null && acct.getIsActive()) {
+                GmailAccount refreshed = refreshAccessToken(acct);
+                Gmail gmail = buildGmailService(refreshed.getAccessToken());
+                ModifyMessageRequest modifyRequest = new ModifyMessageRequest()
+                    .setAddLabelIds(Collections.singletonList("SNOOZED"))
+                    .setRemoveLabelIds(Collections.singletonList("INBOX"));
+                gmail.users().messages().modify("me", email.getGmailMessageId(), modifyRequest).execute();
+            }
+        } catch (Exception e) {
+            log.error("Failed to snooze email on Gmail API for message {}: {}", email.getGmailMessageId(), e.getMessage());
+        }
+    }
+
 
     private void extractBodyParts(MessagePart part, StringBuilder textBuilder, StringBuilder htmlBuilder) {
         if (part == null) return;

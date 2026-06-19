@@ -44,6 +44,16 @@ export const api = {
 
   getThread: (threadId: string) => apiFetch<ThreadDetail>(`/threads/${threadId}`),
 
+  toggleStar: (id: string, starred: boolean) =>
+    apiFetch<void>(`/emails/${id}/star?starred=${starred}`, { method: 'POST' }),
+
+  trashEmail: (id: string) =>
+    apiFetch<void>(`/emails/${id}/trash`, { method: 'POST' }),
+
+  snoozeEmail: (id: string) =>
+    apiFetch<void>(`/emails/${id}/snooze`, { method: 'POST' }),
+
+
   // Sync
   triggerSync: () => apiFetch<{ message: string }>('/gmail/sync', { method: 'POST' }),
   getSyncStatus: () => apiFetch<{ status: string; totalMessagesSynced: number }>('/gmail/sync-status'),
@@ -52,7 +62,6 @@ export const api = {
   summarizeEmail: (emailId: string) => apiFetch<{ summary: string }>(`/ai/summarize/email/${emailId}`, { method: 'POST' }),
   summarizeThread: (threadId: string) => apiFetch<{ summary: string }>(`/ai/summarize/thread/${threadId}`, { method: 'POST' }),
   categorize: (emailId: string) => apiFetch<{ category: string }>(`/ai/categorize/${emailId}`, { method: 'POST' }),
-  reindex: () => apiFetch<{ success: boolean; count: number }>('/ai/reindex', { method: 'POST' }),
 
   // Chat
   chat: (question: string, sessionId?: string) =>

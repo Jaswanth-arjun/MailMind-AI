@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '@/lib/types';
 import type { EmailSummary } from '@/lib/types';
+import { Star, Clock, Trash2 } from 'lucide-react';
 
 const categories = ['All', 'Work/Professional', 'Personal', 'Finance', 'Newsletters', 'Job/Recruitment', 'Notifications'];
 
@@ -66,6 +67,44 @@ export default function AllMailPage() {
     return true;
   });
 
+  const handleToggleStar = async (e: React.MouseEvent, id: string, currentlyStarred: boolean) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEmails(prev => prev.map(email => email.id === id ? { ...email, isStarred: !currentlyStarred } : email));
+    try {
+      await api.toggleStar(id, !currentlyStarred);
+    } catch (err) {
+      console.error('Failed to toggle star:', err);
+      setEmails(prev => prev.map(email => email.id === id ? { ...email, isStarred: currentlyStarred } : email));
+    }
+  };
+
+  const handleTrash = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const previousEmails = [...emails];
+    setEmails(prev => prev.filter(email => email.id !== id));
+    try {
+      await api.trashEmail(id);
+    } catch (err) {
+      console.error('Failed to trash email:', err);
+      setEmails(previousEmails);
+    }
+  };
+
+  const handleSnooze = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const previousEmails = [...emails];
+    setEmails(prev => prev.filter(email => email.id !== id));
+    try {
+      await api.snoozeEmail(id);
+    } catch (err) {
+      console.error('Failed to snooze email:', err);
+      setEmails(previousEmails);
+    }
+  };
+
   return (
     <div className="animate-fade-in max-w-5xl">
       <div className="flex items-center justify-between mb-6">
@@ -118,14 +157,43 @@ export default function AllMailPage() {
         <div className="space-y-2">
           {filtered.map((email) => (
             <Link key={email.id} href={`/dashboard/emails/${email.id}`}
-              className={`card flex items-start gap-4 !p-4 cursor-pointer group ${!email.isRead ? 'border-l-2 border-l-primary' : ''}`}>
+              className={`card flex items-start gap-4 !p-4 cursor-pointer group relative ${!email.isRead ? 'border-l-2 border-l-primary' : ''}`}>
               <div className="w-11 h-11 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center font-semibold shrink-0">
                 {email.senderName?.charAt(0) || '?'}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
                   <span className={`font-medium ${!email.isRead ? 'text-text' : 'text-text-muted'}`}>{email.senderName}</span>
-                  <span className="text-xs text-text-dim shrink-0 ml-4">{formatTime(email.receivedAt)}</span>
+                  
+                  {/* Time and Hover Actions */}
+                  <div className="relative flex items-center justify-end shrink-0 ml-4 min-h-[28px]">
+                    <span className="text-xs text-text-dim group-hover:hidden select-none">
+                      {formatTime(email.receivedAt)}
+                    </span>
+                    <div className="hidden group-hover:flex items-center gap-1 bg-[#101422] border border-[#1a1f2e] rounded-lg p-0.5 shadow-lg backdrop-blur-sm">
+                      <button
+                        onClick={(e) => handleToggleStar(e, email.id, email.isStarred)}
+                        className="p-1 hover:bg-[#1d243a] rounded text-[#8c9bb4] hover:text-[#eab308] transition-colors"
+                        title={email.isStarred ? "Unstar" : "Star"}
+                      >
+                        <Star className={`w-3.5 h-3.5 ${email.isStarred ? 'fill-[#eab308] text-[#eab308]' : ''}`} />
+                      </button>
+                      <button
+                        onClick={(e) => handleSnooze(e, email.id)}
+                        className="p-1 hover:bg-[#1d243a] rounded text-[#8c9bb4] hover:text-[#f97316] transition-colors"
+                        title="Snooze"
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => handleTrash(e, email.id)}
+                        className="p-1 hover:bg-[#1d243a] rounded text-[#8c9bb4] hover:text-[#ef4444] transition-colors"
+                        title="Move to Trash"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <div className={`text-sm mb-1 truncate ${!email.isRead ? 'font-semibold' : 'text-text-muted'}`}>{email.subject}</div>
                 <div className="text-xs text-text-dim truncate mb-2">{email.aiSummary || email.snippet}</div>
@@ -135,7 +203,7 @@ export default function AllMailPage() {
                       {CATEGORY_ICONS[email.aiCategory]} {email.aiCategory}
                     </span>
                   )}
-                  {email.isStarred && <span>⭐</span>}
+                  {email.isStarred && <Star className="w-3.5 h-3.5 fill-[#eab308] text-[#eab308]" />}
                   {email.threadMessageCount > 1 && <span className="text-xs text-text-dim">🧵 {email.threadMessageCount}</span>}
                 </div>
               </div>

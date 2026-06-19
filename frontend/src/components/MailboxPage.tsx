@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '@/lib/types';
 import type { EmailSummary } from '@/lib/types';
+import { Star, Clock, Trash2 } from 'lucide-react';
 
 type MailboxPageProps = {
   title: string;
@@ -43,6 +44,44 @@ export default function MailboxPage({ title, icon, mailbox, label, emptyText }: 
       || e.senderName?.toLowerCase().includes(query)
       || e.senderEmail?.toLowerCase().includes(query);
   });
+
+  const handleToggleStar = async (e: React.MouseEvent, id: string, currentlyStarred: boolean) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEmails(prev => prev.map(email => email.id === id ? { ...email, isStarred: !currentlyStarred } : email));
+    try {
+      await api.toggleStar(id, !currentlyStarred);
+    } catch (err) {
+      console.error('Failed to toggle star:', err);
+      setEmails(prev => prev.map(email => email.id === id ? { ...email, isStarred: currentlyStarred } : email));
+    }
+  };
+
+  const handleTrash = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const previousEmails = [...emails];
+    setEmails(prev => prev.filter(email => email.id !== id));
+    try {
+      await api.trashEmail(id);
+    } catch (err) {
+      console.error('Failed to trash email:', err);
+      setEmails(previousEmails);
+    }
+  };
+
+  const handleSnooze = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const previousEmails = [...emails];
+    setEmails(prev => prev.filter(email => email.id !== id));
+    try {
+      await api.snoozeEmail(id);
+    } catch (err) {
+      console.error('Failed to snooze email:', err);
+      setEmails(previousEmails);
+    }
+  };
 
   return (
     <div className="animate-fade-in max-w-5xl">
@@ -84,7 +123,7 @@ export default function MailboxPage({ title, icon, mailbox, label, emptyText }: 
             <Link
               key={email.id}
               href={`/dashboard/emails/${email.id}`}
-              className={`card flex cursor-pointer items-start gap-4 !p-4 group ${!email.isRead ? 'border-l-2 border-l-primary' : ''}`}
+              className={`card flex cursor-pointer items-start gap-4 !p-4 group relative ${!email.isRead ? 'border-l-2 border-l-primary' : ''}`}
             >
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/30 to-accent/30 font-semibold">
                 {email.senderName?.charAt(0) || email.senderEmail?.charAt(0) || '?'}
@@ -94,7 +133,36 @@ export default function MailboxPage({ title, icon, mailbox, label, emptyText }: 
                   <span className={`truncate font-medium ${!email.isRead ? 'text-text' : 'text-text-muted'}`}>
                     {email.senderName || email.senderEmail || 'Unknown sender'}
                   </span>
-                  <span className="ml-4 shrink-0 text-xs text-text-dim">{formatTime(email.receivedAt)}</span>
+                  
+                  {/* Time and Hover Actions */}
+                  <div className="relative flex items-center justify-end shrink-0 ml-4 min-h-[28px]">
+                    <span className="text-xs text-text-dim group-hover:hidden select-none">
+                      {formatTime(email.receivedAt)}
+                    </span>
+                    <div className="hidden group-hover:flex items-center gap-1 bg-[#101422] border border-[#1a1f2e] rounded-lg p-0.5 shadow-lg backdrop-blur-sm">
+                      <button
+                        onClick={(e) => handleToggleStar(e, email.id, email.isStarred)}
+                        className="p-1 hover:bg-[#1d243a] rounded text-[#8c9bb4] hover:text-[#eab308] transition-colors"
+                        title={email.isStarred ? "Unstar" : "Star"}
+                      >
+                        <Star className={`w-3.5 h-3.5 ${email.isStarred ? 'fill-[#eab308] text-[#eab308]' : ''}`} />
+                      </button>
+                      <button
+                        onClick={(e) => handleSnooze(e, email.id)}
+                        className="p-1 hover:bg-[#1d243a] rounded text-[#8c9bb4] hover:text-[#f97316] transition-colors"
+                        title="Snooze"
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => handleTrash(e, email.id)}
+                        className="p-1 hover:bg-[#1d243a] rounded text-[#8c9bb4] hover:text-[#ef4444] transition-colors"
+                        title="Move to Trash"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <div className={`mb-1 truncate text-sm ${!email.isRead ? 'font-semibold' : 'text-text-muted'}`}>
                   {email.subject || '(No Subject)'}
@@ -106,7 +174,7 @@ export default function MailboxPage({ title, icon, mailbox, label, emptyText }: 
                       {CATEGORY_ICONS[email.aiCategory] || CATEGORY_ICONS.Uncategorized} {email.aiCategory}
                     </span>
                   )}
-                  {email.isStarred && <span>Starred</span>}
+                  {email.isStarred && <Star className="w-3.5 h-3.5 fill-[#eab308] text-[#eab308]" />}
                   {email.threadMessageCount > 1 && <span className="text-xs text-text-dim">{email.threadMessageCount} messages</span>}
                 </div>
               </div>

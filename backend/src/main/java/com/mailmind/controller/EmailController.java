@@ -261,6 +261,25 @@ public class EmailController {
             .build());
     }
 
+    @PostMapping("/emails/{id}/star")
+    public ResponseEntity<Void> toggleStar(@PathVariable UUID id, @RequestParam boolean starred) {
+        gmailService.toggleStar(id, starred);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/emails/{id}/trash")
+    public ResponseEntity<Void> trashEmail(@PathVariable UUID id) {
+        gmailService.trashEmail(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/emails/{id}/snooze")
+    public ResponseEntity<Void> snoozeEmail(@PathVariable UUID id) {
+        gmailService.snoozeEmail(id);
+        return ResponseEntity.ok().build();
+    }
+
+
     private EmailSummaryDto toSummaryDto(EmailSummaryProjection e) {
         return EmailSummaryDto.builder().id(e.getId()).gmailMessageId(e.getGmailMessageId())
             .gmailThreadId(e.getGmailThreadId()).senderEmail(e.getSenderEmail()).senderName(e.getSenderName())
