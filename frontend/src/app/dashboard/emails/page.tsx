@@ -98,7 +98,24 @@ export default function EmailsPage() {
 
       {/* Email List */}
       {loading ? (
-        <div className="flex justify-center py-20"><div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" /></div>
+        <div className="space-y-2">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="card flex items-start gap-4 !p-4 animate-pulse">
+              <div className="w-11 h-11 rounded-full bg-surface-lighter/50 shrink-0" />
+              <div className="flex-1 space-y-3 min-w-0">
+                <div className="flex items-center justify-between">
+                  <div className="h-4 bg-surface-lighter/50 rounded w-1/4" />
+                  <div className="h-3 bg-surface-lighter/50 rounded w-16" />
+                </div>
+                <div className="h-4 bg-surface-lighter/50 rounded w-3/4" />
+                <div className="h-3 bg-surface-lighter/50 rounded w-5/6" />
+                <div className="flex gap-2">
+                  <div className="h-5 bg-surface-lighter/50 rounded w-24" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-text-muted">
           <p className="text-4xl mb-3">📭</p>

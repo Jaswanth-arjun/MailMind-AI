@@ -91,10 +91,44 @@ export default function EmailDetailPage() {
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center h-[60vh]">
-      <div className="text-center">
-        <div className="w-12 h-12 rounded-full border-2 border-primary border-t-transparent animate-spin mx-auto mb-4" />
-        <p className="text-text-muted">Loading email details...</p>
+    <div className="animate-fade-in max-w-4xl">
+      <div className="h-4 w-28 bg-surface-lighter/50 rounded animate-pulse mb-6" />
+
+      <div className="card !p-0 overflow-hidden">
+        <div className="p-6 border-b border-border space-y-4">
+          <div className="flex items-start justify-between">
+            <div className="h-7 w-2/3 bg-surface-lighter/50 rounded animate-pulse" />
+            <div className="h-6 w-24 bg-surface-lighter/50 rounded-full animate-pulse" />
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-surface-lighter/50 animate-pulse shrink-0" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-1/3 bg-surface-lighter/50 rounded animate-pulse" />
+              <div className="h-3 w-1/4 bg-surface-lighter/50 rounded animate-pulse" />
+            </div>
+          </div>
+        </div>
+
+        <div className="mx-6 mt-6 p-4 rounded-xl bg-surface-light border border-border/50 space-y-2">
+          <div className="h-4 w-24 bg-surface-lighter/50 rounded animate-pulse" />
+          <div className="h-3 w-full bg-surface-lighter/50 rounded animate-pulse" />
+          <div className="h-3 w-5/6 bg-surface-lighter/50 rounded animate-pulse" />
+        </div>
+
+        <div className="p-6 space-y-3">
+          <div className="h-4 w-full bg-surface-lighter/50 rounded animate-pulse" />
+          <div className="h-4 w-full bg-surface-lighter/50 rounded animate-pulse" />
+          <div className="h-4 w-11/12 bg-surface-lighter/50 rounded animate-pulse" />
+          <div className="h-4 w-4/5 bg-surface-lighter/50 rounded animate-pulse" />
+          <div className="h-4 w-full bg-surface-lighter/50 rounded animate-pulse" />
+          <div className="h-4 w-3/4 bg-surface-lighter/50 rounded animate-pulse" />
+        </div>
+
+        <div className="p-6 border-t border-border flex gap-3">
+          <div className="h-10 w-24 bg-surface-lighter/50 rounded-xl animate-pulse" />
+          <div className="h-10 w-36 bg-surface-lighter/50 rounded-xl animate-pulse" />
+          <div className="h-10 w-24 bg-surface-lighter/50 rounded-xl animate-pulse" />
+        </div>
       </div>
     </div>
   );

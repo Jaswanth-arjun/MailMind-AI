@@ -128,10 +128,159 @@ export default function DashboardPage() {
 
 
   if (loading) return (
-    <div className="flex items-center justify-center h-[70vh]">
-      <div className="text-center">
-        <div className="w-12 h-12 rounded-full border-2 border-[#6366f1] border-t-transparent animate-spin mx-auto mb-4" />
-        <p className="text-[#8c9bb4] font-medium text-sm">Loading MailMind intelligence...</p>
+    <div className="animate-fade-in text-white font-sans max-w-[1360px] mx-auto pb-12 space-y-8">
+      {/* Greeting Row Skeleton */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-2">
+          <div className="h-8 w-64 bg-surface-lighter/50 rounded animate-pulse" />
+          <div className="h-4 w-80 bg-surface-lighter/50 rounded animate-pulse" />
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="h-6 w-16 bg-surface-lighter/50 rounded-full animate-pulse" />
+          <div className="h-4 w-28 bg-surface-lighter/50 rounded animate-pulse" />
+          <div className="h-10 w-32 bg-surface-lighter/50 rounded-xl animate-pulse" />
+        </div>
+      </div>
+
+      {/* Top Row Grid: Inbox Overview + Email Category Distribution Skeletons */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Inbox Overview Widget Skeleton */}
+        <div className="bg-[#0f111a] border border-[#1a1f2e] rounded-3xl p-6 flex flex-col gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-surface-lighter/50 animate-pulse" />
+            <div className="space-y-1.5 flex-1">
+              <div className="h-4 w-32 bg-surface-lighter/50 rounded animate-pulse" />
+              <div className="h-3 w-48 bg-surface-lighter/50 rounded animate-pulse" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center flex-1">
+            <div className="lg:col-span-7 flex items-center justify-center min-h-[220px]">
+              <div className="w-[180px] h-[180px] rounded-full border-4 border-dashed border-surface-lighter/50 flex items-center justify-center animate-pulse">
+                <div className="w-24 h-24 rounded-full bg-surface-lighter/50" />
+              </div>
+            </div>
+            <div className="lg:col-span-5 space-y-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-surface-lighter/50" />
+                    <div className="h-3 w-20 bg-surface-lighter/50 rounded" />
+                  </div>
+                  <div className="h-4 w-8 bg-surface-lighter/50 rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Email Category Distribution Widget Skeleton */}
+        <div className="bg-[#0f111a] border border-[#1a1f2e] rounded-3xl p-6 flex flex-col gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-surface-lighter/50 animate-pulse" />
+            <div className="space-y-1.5 flex-1">
+              <div className="h-4 w-48 bg-surface-lighter/50 rounded animate-pulse" />
+              <div className="h-3 w-64 bg-surface-lighter/50 rounded animate-pulse" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center flex-1">
+            <div className="lg:col-span-5 flex items-center justify-center min-h-[160px]">
+              <div className="w-32 h-32 rounded-full border-4 border-dashed border-surface-lighter/50 flex items-center justify-center animate-pulse" />
+            </div>
+            <div className="lg:col-span-7 space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex justify-between">
+                    <div className="h-3 w-20 bg-surface-lighter/50 rounded" />
+                    <div className="h-3 w-12 bg-surface-lighter/50 rounded" />
+                  </div>
+                  <div className="w-full h-2 bg-[#111520] border border-[#1a1f2e] rounded-full overflow-hidden">
+                    <div className="h-full bg-surface-lighter/50 rounded-full w-2/3" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Grid Skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] xl:grid-cols-[1fr_320px] gap-6 items-start">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Activity Chart Skeleton */}
+            <div className="bg-[#0f111a] border border-[#1a1f2e] rounded-2xl p-6 space-y-6 min-h-[260px] flex flex-col justify-between">
+              <div className="flex justify-between items-center">
+                <div className="h-4 w-40 bg-surface-lighter/50 rounded" />
+                <div className="h-6 w-20 bg-surface-lighter/50 rounded-lg" />
+              </div>
+              <div className="h-32 w-full bg-surface-lighter/20 rounded flex items-end p-2 gap-4 animate-pulse">
+                {[...Array(7)].map((_, i) => (
+                  <div key={i} className="bg-surface-lighter/50 rounded-t w-full" style={{ height: `${20 + i * 10}%` }} />
+                ))}
+              </div>
+            </div>
+
+            {/* Top Senders Skeleton */}
+            <div className="bg-[#0f111a] border border-[#1a1f2e] rounded-2xl p-6 space-y-6 min-h-[260px] flex flex-col justify-between">
+              <div className="flex justify-between items-center">
+                <div className="h-4 w-32 bg-surface-lighter/50 rounded" />
+                <div className="h-6 w-20 bg-surface-lighter/50 rounded-lg" />
+              </div>
+              <div className="space-y-3 flex-1 justify-center flex flex-col">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="space-y-1">
+                    <div className="flex justify-between">
+                      <div className="h-3 w-28 bg-surface-lighter/50 rounded" />
+                      <div className="h-3 w-8 bg-surface-lighter/50 rounded" />
+                    </div>
+                    <div className="w-full h-1.5 bg-surface-lighter/20 rounded-full">
+                      <div className="h-full bg-surface-lighter/50 rounded-full" style={{ width: `${80 - i * 15}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right column sidebar actions skeleton */}
+        <div className="bg-[#0f111a] border border-[#1a1f2e] rounded-2xl p-6 space-y-4">
+          <div className="h-4 w-28 bg-surface-lighter/50 rounded" />
+          <div className="space-y-2">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-12 bg-surface-lighter/30 border border-[#1a1f2e] rounded-xl flex items-center px-3 gap-3 animate-pulse">
+                <div className="w-6 h-6 rounded bg-surface-lighter/50 shrink-0" />
+                <div className="space-y-1.5 flex-1">
+                  <div className="h-3 w-2/3 bg-surface-lighter/50 rounded" />
+                  <div className="h-2 w-1/2 bg-surface-lighter/50 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Emails Skeleton */}
+      <div className="bg-[#0f111a] border border-[#1a1f2e] rounded-2xl p-6 space-y-4">
+        <div className="flex justify-between items-center">
+          <div className="h-5 w-32 bg-surface-lighter/50 rounded" />
+          <div className="h-4 w-24 bg-surface-lighter/50 rounded" />
+        </div>
+        <div className="space-y-2.5">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-4 py-3.5 rounded-xl border border-[#1a1f2e] bg-[#0c0e16]/50 animate-pulse">
+              <div className="w-9 h-9 rounded-xl bg-surface-lighter/50 shrink-0" />
+              <div className="w-36 lg:w-44 shrink-0">
+                <div className="h-3 w-24 bg-surface-lighter/50 rounded" />
+              </div>
+              <div className="flex-1 space-y-1.5 min-w-0">
+                <div className="h-3 w-1/3 bg-surface-lighter/50 rounded" />
+                <div className="h-2 w-2/3 bg-surface-lighter/50 rounded" />
+              </div>
+              <div className="w-16 h-5 rounded bg-surface-lighter/50 shrink-0" />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
