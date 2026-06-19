@@ -66,11 +66,11 @@ export default function Sidebar() {
   const mainNavItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/dashboard/emails', label: 'Inbox', icon: Inbox, badge: unreadCount ?? undefined },
+    { href: '/dashboard/all-mail', label: 'All Mail', icon: Mail },
     { href: '/dashboard/starred', label: 'Starred', icon: Star },
     { href: '/dashboard/snoozed', label: 'Snoozed', icon: Clock },
     { href: '/dashboard/sent', label: 'Sent', icon: Send },
     { href: '/dashboard/drafts', label: 'Drafts', icon: FileText },
-    { href: '/dashboard/all-mail', label: 'All Mail', icon: Mail },
     { href: '/dashboard/trash', label: 'Trash', icon: Trash2 },
     { href: '/dashboard/categories', label: 'Categories', icon: Tag },
     { href: '/dashboard/labels', label: 'Labels', icon: Bookmark },
