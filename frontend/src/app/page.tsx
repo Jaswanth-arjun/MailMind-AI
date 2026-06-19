@@ -278,7 +278,7 @@ function WorkspaceScene({
   const backY = useTransform(sceneY, [-1, 1], [10, -10]);
 
   return (
-    <div className="relative mx-auto h-[600px] w-full max-w-[780px] [perspective:1500px] max-lg:h-[540px] max-sm:h-auto max-sm:min-h-[720px]">
+    <div className="relative mx-auto h-[600px] w-full max-w-[740px] [perspective:1500px] max-lg:h-[540px] max-sm:h-auto max-sm:min-h-[720px]">
       <motion.div
         className="absolute inset-0 rounded-[3rem] bg-[radial-gradient(circle_at_50%_45%,rgba(99,102,241,0.18),transparent_48%)] blur-2xl"
         style={{ x: backX, y: backY }}
@@ -295,7 +295,7 @@ function WorkspaceScene({
         <ConnectionLines />
 
         <motion.div
-          className="absolute left-[17%] top-[14%] h-[438px] w-[494px] max-sm:left-0 max-sm:top-20 max-sm:w-full"
+          className="absolute left-[13%] top-[14%] h-[438px] w-[494px] max-sm:left-0 max-sm:top-20 max-sm:w-full"
           style={{
             transform: 'translateZ(40px)',
             boxShadow: dashboardShadow,
@@ -547,7 +547,7 @@ export default function LandingPage() {
           initial={{ opacity: 0, scale: 0.96, y: 28 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
-          className="relative"
+          className="relative lg:-ml-8 xl:-ml-4"
         >
           <WorkspaceScene sceneX={sceneX} sceneY={sceneY} reduced={isReduced} />
         </motion.div>
