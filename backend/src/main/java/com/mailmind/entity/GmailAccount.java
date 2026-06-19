@@ -22,10 +22,10 @@ public class GmailAccount {
     @Column(name = "gmail_email", nullable = false)
     private String gmailEmail;
 
-    @Column(name = "access_token")
+    @Column(name = "access_token", columnDefinition = "TEXT")
     private String accessToken;
 
-    @Column(name = "refresh_token")
+    @Column(name = "refresh_token", columnDefinition = "TEXT")
     private String refreshToken;
 
     @Column(name = "token_expires_at")
@@ -52,11 +52,12 @@ public class GmailAccount {
     private Instant updatedAt;
 
     // Constructors
-    public GmailAccount() {}
+    public GmailAccount() {
+    }
 
     public GmailAccount(UUID id, User user, String gmailEmail, String accessToken, String refreshToken,
-                        Instant tokenExpiresAt, String scopes, Instant connectedAt, Instant lastSyncAt,
-                        Boolean isActive, Instant createdAt, Instant updatedAt) {
+            Instant tokenExpiresAt, String scopes, Instant connectedAt, Instant lastSyncAt,
+            Boolean isActive, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.user = user;
         this.gmailEmail = gmailEmail;
@@ -72,41 +73,101 @@ public class GmailAccount {
     }
 
     // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
+    public UUID getId() {
+        return id;
+    }
 
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
+    public void setId(UUID id) {
+        this.id = id;
+    }
 
-    public String getGmailEmail() { return gmailEmail; }
-    public void setGmailEmail(String gmailEmail) { this.gmailEmail = gmailEmail; }
+    public User getUser() {
+        return user;
+    }
 
-    public String getAccessToken() { return accessToken; }
-    public void setAccessToken(String accessToken) { this.accessToken = accessToken; }
+    public void setUser(User user) {
+        this.user = user;
+    }
 
-    public String getRefreshToken() { return refreshToken; }
-    public void setRefreshToken(String refreshToken) { this.refreshToken = refreshToken; }
+    public String getGmailEmail() {
+        return gmailEmail;
+    }
 
-    public Instant getTokenExpiresAt() { return tokenExpiresAt; }
-    public void setTokenExpiresAt(Instant tokenExpiresAt) { this.tokenExpiresAt = tokenExpiresAt; }
+    public void setGmailEmail(String gmailEmail) {
+        this.gmailEmail = gmailEmail;
+    }
 
-    public String getScopes() { return scopes; }
-    public void setScopes(String scopes) { this.scopes = scopes; }
+    public String getAccessToken() {
+        return accessToken;
+    }
 
-    public Instant getConnectedAt() { return connectedAt; }
-    public void setConnectedAt(Instant connectedAt) { this.connectedAt = connectedAt; }
+    public void setAccessToken(String accessToken) {
+        this.accessToken = accessToken;
+    }
 
-    public Instant getLastSyncAt() { return lastSyncAt; }
-    public void setLastSyncAt(Instant lastSyncAt) { this.lastSyncAt = lastSyncAt; }
+    public String getRefreshToken() {
+        return refreshToken;
+    }
 
-    public Boolean getIsActive() { return isActive; }
-    public void setIsActive(Boolean isActive) { this.isActive = isActive; }
+    public void setRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
+    }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public Instant getTokenExpiresAt() {
+        return tokenExpiresAt;
+    }
 
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public void setTokenExpiresAt(Instant tokenExpiresAt) {
+        this.tokenExpiresAt = tokenExpiresAt;
+    }
+
+    public String getScopes() {
+        return scopes;
+    }
+
+    public void setScopes(String scopes) {
+        this.scopes = scopes;
+    }
+
+    public Instant getConnectedAt() {
+        return connectedAt;
+    }
+
+    public void setConnectedAt(Instant connectedAt) {
+        this.connectedAt = connectedAt;
+    }
+
+    public Instant getLastSyncAt() {
+        return lastSyncAt;
+    }
+
+    public void setLastSyncAt(Instant lastSyncAt) {
+        this.lastSyncAt = lastSyncAt;
+    }
+
+    public Boolean getIsActive() {
+        return isActive;
+    }
+
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
 
     // Manual Builder
     public static class GmailAccountBuilder {
@@ -120,15 +181,50 @@ public class GmailAccount {
         private Instant lastSyncAt;
         private Boolean isActive = true;
 
-        public GmailAccountBuilder user(User user) { this.user = user; return this; }
-        public GmailAccountBuilder gmailEmail(String gmailEmail) { this.gmailEmail = gmailEmail; return this; }
-        public GmailAccountBuilder accessToken(String accessToken) { this.accessToken = accessToken; return this; }
-        public GmailAccountBuilder refreshToken(String refreshToken) { this.refreshToken = refreshToken; return this; }
-        public GmailAccountBuilder tokenExpiresAt(Instant tokenExpiresAt) { this.tokenExpiresAt = tokenExpiresAt; return this; }
-        public GmailAccountBuilder scopes(String scopes) { this.scopes = scopes; return this; }
-        public GmailAccountBuilder connectedAt(Instant connectedAt) { this.connectedAt = connectedAt; return this; }
-        public GmailAccountBuilder lastSyncAt(Instant lastSyncAt) { this.lastSyncAt = lastSyncAt; return this; }
-        public GmailAccountBuilder isActive(Boolean isActive) { this.isActive = isActive; return this; }
+        public GmailAccountBuilder user(User user) {
+            this.user = user;
+            return this;
+        }
+
+        public GmailAccountBuilder gmailEmail(String gmailEmail) {
+            this.gmailEmail = gmailEmail;
+            return this;
+        }
+
+        public GmailAccountBuilder accessToken(String accessToken) {
+            this.accessToken = accessToken;
+            return this;
+        }
+
+        public GmailAccountBuilder refreshToken(String refreshToken) {
+            this.refreshToken = refreshToken;
+            return this;
+        }
+
+        public GmailAccountBuilder tokenExpiresAt(Instant tokenExpiresAt) {
+            this.tokenExpiresAt = tokenExpiresAt;
+            return this;
+        }
+
+        public GmailAccountBuilder scopes(String scopes) {
+            this.scopes = scopes;
+            return this;
+        }
+
+        public GmailAccountBuilder connectedAt(Instant connectedAt) {
+            this.connectedAt = connectedAt;
+            return this;
+        }
+
+        public GmailAccountBuilder lastSyncAt(Instant lastSyncAt) {
+            this.lastSyncAt = lastSyncAt;
+            return this;
+        }
+
+        public GmailAccountBuilder isActive(Boolean isActive) {
+            this.isActive = isActive;
+            return this;
+        }
 
         public GmailAccount build() {
             GmailAccount ga = new GmailAccount();

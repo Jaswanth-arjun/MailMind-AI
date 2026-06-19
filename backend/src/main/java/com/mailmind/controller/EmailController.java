@@ -36,11 +36,11 @@ public class EmailController {
             @RequestParam(required = false) String category) {
         UUID userId = (UUID) auth.getPrincipal();
         GmailAccount acct = gmailAccountRepo.findByUserIdAndIsActiveTrue(userId).orElseThrow();
-        Page<Email> emails;
+        Page<EmailSummaryProjection> emails;
         if (category != null && !category.isEmpty())
-            emails = emailRepo.findByGmailAccountIdAndAiCategoryOrderByReceivedAtDesc(acct.getId(), category, PageRequest.of(page, size));
+            emails = emailRepo.findProjectedByGmailAccountIdAndAiCategoryOrderByReceivedAtDesc(acct.getId(), category, PageRequest.of(page, size));
         else
-            emails = emailRepo.findByGmailAccountIdOrderByReceivedAtDesc(acct.getId(), PageRequest.of(page, size));
+            emails = emailRepo.findProjectedByGmailAccountIdOrderByReceivedAtDesc(acct.getId(), PageRequest.of(page, size));
         List<EmailSummaryDto> dtos = emails.getContent().stream().map(this::toSummaryDto).collect(Collectors.toList());
         return ResponseEntity.ok(EmailListResponse.builder().emails(dtos)
             .totalCount((int)emails.getTotalElements()).page(page).pageSize(size).build());
@@ -85,7 +85,7 @@ public class EmailController {
         int total = emailRepo.countByGmailAccountId(acct.getId());
         int unread = emailRepo.countByGmailAccountIdAndIsReadFalse(acct.getId());
         int threads = threadRepo.countByGmailAccountId(acct.getId());
-        Page<Email> recent = emailRepo.findByGmailAccountIdOrderByReceivedAtDesc(acct.getId(), PageRequest.of(0, 5));
+        Page<EmailSummaryProjection> recent = emailRepo.findProjectedByGmailAccountIdOrderByReceivedAtDesc(acct.getId(), PageRequest.of(0, 5));
         // Category breakdown
         List<Object[]> cats = emailRepo.countByCategory(acct.getId());
         CategoryBreakdownDto cbd = CategoryBreakdownDto.builder().build();
@@ -106,9 +106,23 @@ public class EmailController {
         List<Object[]> topSendersData = emailRepo.findTopSenders(acct.getId(), PageRequest.of(0, 5));
         List<TopSenderDto> topSenders = new ArrayList<>();
         for (Object[] row : topSendersData) {
-            String name = (String) row[0];
-            long count = (Long) row[1];
-            topSenders.add(TopSenderDto.builder().name(name != null ? name : "Unknown").email("").count((int)count).build());
+            String email = (String) row[0];
+            String name = (String) row[1];
+            long count = (Long) row[2];
+            
+            String displayName = name;
+            if (displayName == null || displayName.trim().isEmpty()) {
+                displayName = email;
+            }
+            if (displayName == null || displayName.trim().isEmpty()) {
+                displayName = "Unknown";
+            }
+            
+            topSenders.add(TopSenderDto.builder()
+                .name(displayName)
+                .email(email != null ? email : "")
+                .count((int)count)
+                .build());
         }
 
         // Calculate activity counts for last 7 days
@@ -153,13 +167,13 @@ public class EmailController {
             .build());
     }
 
-    private EmailSummaryDto toSummaryDto(Email e) {
+    private EmailSummaryDto toSummaryDto(EmailSummaryProjection e) {
         return EmailSummaryDto.builder().id(e.getId()).gmailMessageId(e.getGmailMessageId())
             .gmailThreadId(e.getGmailThreadId()).senderEmail(e.getSenderEmail()).senderName(e.getSenderName())
             .subject(e.getSubject()).snippet(e.getSnippet()).receivedAt(e.getReceivedAt())
             .isRead(e.getIsRead() != null && e.getIsRead()).isStarred(e.getIsStarred() != null && e.getIsStarred())
             .aiSummary(e.getAiSummary()).aiCategory(e.getAiCategory())
-            .threadMessageCount(e.getThread() != null ? e.getThread().getMessageCount() : 1).build();
+            .threadMessageCount(e.getThread() != null && e.getThread().getMessageCount() != null ? e.getThread().getMessageCount() : 1).build();
     }
 
     private EmailDetailDto toDetailDto(Email e) {

@@ -57,6 +57,11 @@ public class DataSourceConfig {
         // Fallback to file-based H2 database (Postgres compatibility mode)
         String h2Url = "jdbc:h2:file:./data/mailmind;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE;MODE=PostgreSQL";
         log.info("Using fallback H2 datasource: {}", h2Url);
+        
+        // Dynamically override Hibernate's DDL-auto to create/update tables in local H2 database
+        System.setProperty("spring.jpa.hibernate.ddl-auto", "update");
+        System.setProperty("spring.jpa.properties.hibernate.hbm2ddl.auto", "update");
+        
         HikariConfig cfg = new HikariConfig();
         cfg.setJdbcUrl(h2Url);
         cfg.setDriverClassName("org.h2.Driver");

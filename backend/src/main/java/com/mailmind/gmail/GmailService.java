@@ -260,11 +260,12 @@ public class GmailService {
             log.info("Performing initial sync for query: '{}' (sync all messages)", q);
         }
 
+        final String queryStr = q;
         do {
             String pt = pageToken;
             ListMessagesResponse resp = executeWithBackoff(() ->
                 gmail.users().messages().list("me")
-                    .setQ(q)
+                    .setQ(queryStr)
                     .setMaxResults((long)maxResults)
                     .setPageToken(pt)
                     .execute());

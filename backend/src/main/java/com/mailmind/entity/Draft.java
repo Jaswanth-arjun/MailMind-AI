@@ -27,12 +27,13 @@ public class Draft {
     @JoinColumn(name = "in_reply_to_thread_id")
     private EmailThread inReplyToThread;
 
-    @Column(name = "recipient_emails", columnDefinition = "text[]")
+    @Column(name = "recipient_emails")
     private String[] recipientEmails;
 
-    @Column(name = "cc_emails", columnDefinition = "text[]")
+    @Column(name = "cc_emails")
     private String[] ccEmails;
 
+    @Column(name = "subject", length = 1000)
     private String subject;
 
     @Column(name = "body_text", columnDefinition = "text")

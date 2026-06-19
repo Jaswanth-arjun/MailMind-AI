@@ -26,7 +26,7 @@ public class ChatMessage {
     @Column(nullable = false, columnDefinition = "text")
     private String content;
 
-    @Column(name = "source_email_ids", columnDefinition = "uuid[]")
+    @Column(name = "source_email_ids")
     private UUID[] sourceEmailIds;
 
     @JdbcTypeCode(SqlTypes.JSON)

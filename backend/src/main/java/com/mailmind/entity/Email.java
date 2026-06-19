@@ -35,15 +35,16 @@ public class Email {
     @Column(name = "sender_name")
     private String senderName;
 
-    @Column(name = "recipient_emails", columnDefinition = "text[]")
+    @Column(name = "recipient_emails")
     private String[] recipientEmails;
 
-    @Column(name = "cc_emails", columnDefinition = "text[]")
+    @Column(name = "cc_emails")
     private String[] ccEmails;
 
-    @Column(name = "bcc_emails", columnDefinition = "text[]")
+    @Column(name = "bcc_emails")
     private String[] bccEmails;
 
+    @Column(name = "subject", length = 1000)
     private String subject;
 
     @Column(columnDefinition = "text")
@@ -76,7 +77,7 @@ public class Email {
     @Column(name = "has_attachments")
     private Boolean hasAttachments = false;
 
-    @Column(name = "gmail_label_ids", columnDefinition = "text[]")
+    @Column(name = "gmail_label_ids")
     private String[] gmailLabelIds;
 
     // AI-generated fields

@@ -22,6 +22,7 @@ public class EmailThread {
     @Column(name = "gmail_thread_id", nullable = false)
     private String gmailThreadId;
 
+    @Column(name = "subject", length = 1000)
     private String subject;
 
     @Column(columnDefinition = "text")
@@ -33,7 +34,7 @@ public class EmailThread {
     @Column(name = "last_message_at")
     private Instant lastMessageAt;
 
-    @Column(name = "participants", columnDefinition = "text[]")
+    @Column(name = "participants")
     private String[] participants;
 
     @Column(name = "is_read")

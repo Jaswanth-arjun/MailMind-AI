@@ -278,7 +278,7 @@ function WorkspaceScene({
   const backY = useTransform(sceneY, [-1, 1], [10, -10]);
 
   return (
-    <div className="relative mx-auto h-[580px] w-full max-w-[720px] [perspective:1400px] max-lg:h-[520px] max-sm:h-auto max-sm:min-h-[720px]">
+    <div className="relative mx-auto h-[600px] w-full max-w-[780px] [perspective:1500px] max-lg:h-[540px] max-sm:h-auto max-sm:min-h-[720px]">
       <motion.div
         className="absolute inset-0 rounded-[3rem] bg-[radial-gradient(circle_at_50%_45%,rgba(99,102,241,0.18),transparent_48%)] blur-2xl"
         style={{ x: backX, y: backY }}
@@ -295,7 +295,7 @@ function WorkspaceScene({
         <ConnectionLines />
 
         <motion.div
-          className="absolute left-[11%] top-[12%] h-[460px] w-[520px] max-sm:left-0 max-sm:top-20 max-sm:w-full"
+          className="absolute left-[17%] top-[14%] h-[438px] w-[494px] max-sm:left-0 max-sm:top-20 max-sm:w-full"
           style={{
             transform: 'translateZ(40px)',
             boxShadow: dashboardShadow,
@@ -305,7 +305,7 @@ function WorkspaceScene({
           <DashboardPanel />
         </motion.div>
 
-        <FloatingCard x={sceneX} y={sceneY} depth={0.45} blur={0.25} className="left-[3%] top-[6%] w-52 max-sm:left-2 max-sm:top-0" >
+        <FloatingCard x={sceneX} y={sceneY} depth={0.45} blur={0.25} className="left-[-2%] top-[5%] w-52 max-sm:left-2 max-sm:top-0" >
           <div style={{ transform: 'translateZ(20px)' }}>
             <div className="mb-2 flex items-center gap-2 text-[12px] font-bold text-slate-900">
               <CheckCircle2 className="h-4 w-4 text-emerald-500" />
@@ -315,7 +315,7 @@ function WorkspaceScene({
           </div>
         </FloatingCard>
 
-        <FloatingCard x={sceneX} y={sceneY} depth={1} className="right-[0%] top-[10%] w-64 max-sm:right-0 max-sm:top-20">
+        <FloatingCard x={sceneX} y={sceneY} depth={1} className="right-[-4%] top-[9%] w-64 max-sm:right-0 max-sm:top-20">
           <div style={{ transform: 'translateZ(120px)' }}>
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2 text-[12px] font-bold text-slate-950">
@@ -328,7 +328,7 @@ function WorkspaceScene({
           </div>
         </FloatingCard>
 
-        <FloatingCard x={sceneX} y={sceneY} depth={0.7} className="right-[4%] top-[42%] w-60 max-sm:right-0 max-sm:top-[280px]">
+        <FloatingCard x={sceneX} y={sceneY} depth={0.7} className="right-[-2%] top-[40%] w-60 max-sm:right-0 max-sm:top-[280px]">
           <div style={{ transform: 'translateZ(70px)' }}>
             <div className="mb-3 flex items-center gap-2 text-[12px] font-bold text-slate-950">
               <BotMessageSquare className="h-4 w-4 text-blue-600" />
@@ -338,7 +338,7 @@ function WorkspaceScene({
           </div>
         </FloatingCard>
 
-        <FloatingCard x={sceneX} y={sceneY} depth={0.62} className="left-[0%] top-[54%] w-56 max-sm:left-0 max-sm:top-[420px]">
+        <FloatingCard x={sceneX} y={sceneY} depth={0.62} className="left-[-4%] top-[54%] w-56 max-sm:left-0 max-sm:top-[420px]">
           <div style={{ transform: 'translateZ(70px)' }}>
             <div className="mb-3 flex items-center gap-2 text-[12px] font-bold text-slate-950">
               <BarChart3 className="h-4 w-4 text-sky-600" />
@@ -357,7 +357,7 @@ function WorkspaceScene({
           </div>
         </FloatingCard>
 
-        <FloatingCard x={sceneX} y={sceneY} depth={0.92} className="bottom-[2%] right-[12%] w-64 max-sm:right-0 max-sm:bottom-6">
+        <FloatingCard x={sceneX} y={sceneY} depth={0.92} className="bottom-[1%] right-[7%] w-64 max-sm:right-0 max-sm:bottom-6">
           <div style={{ transform: 'translateZ(120px)' }}>
             <div className="mb-3 flex items-center gap-2 text-[12px] font-bold text-slate-950">
               <MessageSquareText className="h-4 w-4 text-violet-600" />
@@ -368,7 +368,7 @@ function WorkspaceScene({
           </div>
         </FloatingCard>
 
-        <FloatingCard x={sceneX} y={sceneY} depth={0.35} blur={0.2} className="bottom-[11%] left-[20%] w-48 max-sm:left-4 max-sm:bottom-[150px]">
+        <FloatingCard x={sceneX} y={sceneY} depth={0.35} blur={0.2} className="bottom-[9%] left-[14%] w-48 max-sm:left-4 max-sm:bottom-[150px]">
           <div style={{ transform: 'translateZ(20px)' }}>
             <div className="mb-2 flex items-center gap-2 text-[12px] font-bold text-slate-950">
               <Link2 className="h-4 w-4 text-slate-600" />
@@ -382,9 +382,9 @@ function WorkspaceScene({
         </FloatingCard>
 
         {[
-          ['Contract.pdf received', 'left-[8%] top-[34%]', 'translateZ(120px)'],
-          ['Reply ready', 'right-[1%] bottom-[28%]', 'translateZ(70px)'],
-          ['7 priority emails', 'left-[42%] top-[3%]', 'translateZ(120px)'],
+          ['Contract.pdf received', 'left-[2%] top-[33%]', 'translateZ(120px)'],
+          ['Reply ready', 'right-[-1%] bottom-[29%]', 'translateZ(70px)'],
+          ['7 priority emails', 'left-[40%] top-[2%]', 'translateZ(120px)'],
         ].map(([label, position, z]) => (
           <motion.div
             key={label}

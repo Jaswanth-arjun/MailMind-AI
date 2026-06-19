@@ -18,6 +18,8 @@ public interface EmailRepository extends JpaRepository<Email, UUID> {
 
     Page<Email> findByGmailAccountIdOrderByReceivedAtDesc(UUID gmailAccountId, Pageable pageable);
 
+    Page<EmailSummaryProjection> findProjectedByGmailAccountIdOrderByReceivedAtDesc(UUID gmailAccountId, Pageable pageable);
+
     List<Email> findByGmailAccountIdAndGmailThreadIdOrderByReceivedAtAsc(UUID gmailAccountId, String gmailThreadId);
 
     Optional<Email> findByGmailAccountIdAndGmailMessageId(UUID gmailAccountId, String gmailMessageId);
@@ -31,6 +33,9 @@ public interface EmailRepository extends JpaRepository<Email, UUID> {
     Page<Email> findByGmailAccountIdAndAiCategoryOrderByReceivedAtDesc(
         UUID gmailAccountId, String aiCategory, Pageable pageable);
 
+    Page<EmailSummaryProjection> findProjectedByGmailAccountIdAndAiCategoryOrderByReceivedAtDesc(
+        UUID gmailAccountId, String aiCategory, Pageable pageable);
+
     @Query("SELECT e.aiCategory, COUNT(e) FROM Email e WHERE e.gmailAccount.id = :accountId GROUP BY e.aiCategory")
     List<Object[]> countByCategory(@Param("accountId") UUID accountId);
 
@@ -40,7 +45,7 @@ public interface EmailRepository extends JpaRepository<Email, UUID> {
     @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND e.aiCategorizedAt IS NULL ORDER BY e.receivedAt DESC")
     List<Email> findUncategorized(@Param("accountId") UUID accountId, Pageable pageable);
 
-    @Query("SELECT COALESCE(NULLIF(trim(e.senderName), ''), e.senderEmail), COUNT(e) as cnt FROM Email e WHERE e.gmailAccount.id = :accountId GROUP BY COALESCE(NULLIF(trim(e.senderName), ''), e.senderEmail) ORDER BY cnt DESC")
+    @Query("SELECT e.senderEmail, MAX(e.senderName), COUNT(e) as cnt FROM Email e WHERE e.gmailAccount.id = :accountId AND e.senderEmail IS NOT NULL GROUP BY e.senderEmail ORDER BY cnt DESC")
     List<Object[]> findTopSenders(@Param("accountId") UUID accountId, Pageable pageable);
 
     @Query("SELECT e.receivedAt FROM Email e WHERE e.gmailAccount.id = :accountId AND e.receivedAt >= :since ORDER BY e.receivedAt ASC")
