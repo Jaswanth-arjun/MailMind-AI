@@ -1,0 +1,70 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: mailmind-api
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:mailmind;DB_CLOSE_DELAY=-1;MODE=PostgreSQL}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:sa}
+    hikari:
+      minimum-idle: 1
+      maximum-pool-size: 10
+      idle-timeout: 60000
+      max-lifetime: 180000
+      keepalive-time: 30000
+      connection-timeout: 10000
+      validation-timeout: 3000
+      leak-detection-threshold: 20000
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+# Application configuration
+app:
+  jwt:
+    secret: ${APP_JWT_SECRET:default-dev-secret-change-in-production-minimum-32-chars}
+    expiration-ms: 86400000 # 24 hours
+  frontend-url: ${APP_FRONTEND_URL:http://localhost:3000}
+  backend-url: ${APP_BACKEND_URL:http://localhost:8080}
+
+# Google OAuth
+google:
+  client-id: ${GOOGLE_CLIENT_ID:}
+  client-secret: ${GOOGLE_CLIENT_SECRET:}
+  redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/api/gmail/callback}
+  scopes: https://www.googleapis.com/auth/gmail.readonly,https://www.googleapis.com/auth/gmail.compose,https://www.googleapis.com/auth/gmail.send,https://www.googleapis.com/auth/userinfo.email,https://www.googleapis.com/auth/userinfo.profile,https://www.googleapis.com/auth/drive.metadata.readonly
+
+# AI APIs
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  model: gemini-1.5-flash
+  embedding-model: text-embedding-004
+
+nvidia:
+  nim:
+    api-key: ${NVIDIA_NIM_API_KEY:}
+    base-url: ${NVIDIA_NIM_BASE_URL:https://integrate.api.nvidia.com/v1}
+    model: meta/llama-3.1-8b-instruct
+
+# Gmail sync settings
+gmail:
+  sync:
+    max-results: 100
+    initial-sync-days: 30
+    rate-limit-retry-max: 5
+    rate-limit-base-delay-ms: 1000
+
+logging:
+  level:
+    com.mailmind: DEBUG
+    org.springframework.security: INFO
