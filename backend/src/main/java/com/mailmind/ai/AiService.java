@@ -117,12 +117,23 @@ public class AiService {
         return callGemini(prompt);
     }
 
+    /** General chat answer for questions that are not asking about the user's mailbox. */
+    public String generalChat(String question, String chatHistory) {
+        String prompt = "You are MailMind's helpful AI assistant. Answer the user's general question accurately and clearly.\n"
+            + "Do not claim that the answer came from the user's emails unless email context was provided. If the question needs live, private, legal, medical, or financial data you do not have, say what is missing and give safe general guidance.\n\n"
+            + (chatHistory != null ? "=== Previous Chat ===\n" + chatHistory + "\n\n" : "")
+            + "=== Question ===\n" + question;
+        return callGemini(prompt);
+    }
+
     /** Generate a search/retrieval query plan from user query and chat history */
     public String parseSearchPlan(String question, String chatHistory) {
         String prompt = "Analyze the following user query about their emails and any recent chat context.\n"
-            + "Your goal is to parse it into a JSON search plan that filters emails accurately in a SQL database.\n\n"
+            + "Your goal is to parse it into a JSON search plan that filters emails accurately in a SQL database.\n"
+            + "First decide answerScope: use \"MAIL\" when the user is asking about their inbox, messages, senders, threads, appointments, deadlines, receipts, newsletters, or follow-up context from prior email answers. Use \"GENERAL\" only when the user is clearly asking a normal non-email knowledge question.\n\n"
             + "Output ONLY a raw JSON block with the following fields (no markdown formatting, no other text):\n"
             + "{\n"
+            + "  \"answerScope\": \"MAIL\" or \"GENERAL\",\n"
             + "  \"sender\": string or null (substring to match against sender_email or sender_name),\n"
             + "  \"subject\": string or null (substring to match against email subject),\n"
             + "  \"timeRangeDays\": integer or null (number of days from current time to look back),\n"

@@ -25,7 +25,7 @@ export default function EmailsPage() {
 
   const fetchEmails = (currentFilter: string) => {
     setLoading(true);
-    api.getEmails(0, 100, currentFilter, true) // inboxOnly = true
+    api.getEmails(0, 50, currentFilter, true) // inboxOnly = true
       .then(res => setEmails(res.emails))
       .catch(console.error)
       .finally(() => setLoading(false));

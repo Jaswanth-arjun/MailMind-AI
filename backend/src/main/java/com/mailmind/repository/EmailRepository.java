@@ -3,6 +3,7 @@ package com.mailmind.repository;
 import com.mailmind.entity.Email;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,6 +19,7 @@ public interface EmailRepository extends JpaRepository<Email, UUID> {
 
     Page<Email> findByGmailAccountIdOrderByReceivedAtDesc(UUID gmailAccountId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"thread"})
     Page<EmailSummaryProjection> findProjectedByGmailAccountIdOrderByReceivedAtDesc(UUID gmailAccountId, Pageable pageable);
 
     List<Email> findByGmailAccountIdAndGmailThreadIdOrderByReceivedAtAsc(UUID gmailAccountId, String gmailThreadId);
@@ -34,27 +36,34 @@ public interface EmailRepository extends JpaRepository<Email, UUID> {
 
     List<Email> findByInInboxIsNull();
 
+    @EntityGraph(attributePaths = {"thread"})
     @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) ORDER BY e.receivedAt DESC")
     Page<EmailSummaryProjection> findInboxEmails(@Param("accountId") UUID accountId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"thread"})
     @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory = :category ORDER BY e.receivedAt DESC")
     Page<EmailSummaryProjection> findInboxEmailsByCategory(@Param("accountId") UUID accountId, @Param("category") String category, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"thread"})
     @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND (e.aiCategory IN ('Personal', 'Work/Professional', 'Job/Recruitment') OR e.aiCategory IS NULL) ORDER BY e.receivedAt DESC")
     Page<EmailSummaryProjection> findInboxPrimaryEmails(@Param("accountId") UUID accountId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"thread"})
     @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory = 'Newsletters' ORDER BY e.receivedAt DESC")
     Page<EmailSummaryProjection> findInboxPromotionsEmails(@Param("accountId") UUID accountId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"thread"})
     @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory = 'Social' ORDER BY e.receivedAt DESC")
     Page<EmailSummaryProjection> findInboxSocialEmails(@Param("accountId") UUID accountId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"thread"})
     @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory IN ('Finance', 'Notifications') ORDER BY e.receivedAt DESC")
     Page<EmailSummaryProjection> findInboxUpdatesEmails(@Param("accountId") UUID accountId, Pageable pageable);
 
     Page<Email> findByGmailAccountIdAndAiCategoryOrderByReceivedAtDesc(
         UUID gmailAccountId, String aiCategory, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"thread"})
     Page<EmailSummaryProjection> findProjectedByGmailAccountIdAndAiCategoryOrderByReceivedAtDesc(
         UUID gmailAccountId, String aiCategory, Pageable pageable);
 
