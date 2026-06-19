@@ -143,7 +143,7 @@ export default function Sidebar() {
             return (
               <div key={item.href}>
                 <Link
-                  href={item.href === '/dashboard' || item.href === '/dashboard/emails' || item.href === '/dashboard/categories' || item.href === '/dashboard/all-mail' ? item.href : '/dashboard'}
+                  href={item.href}
                   className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-[13.5px] font-medium transition-all duration-200 group relative
                     ${active 
                       ? 'bg-[#181d2a] text-[#818cf8] border border-[#2b354d]' 

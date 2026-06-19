@@ -277,7 +277,7 @@ public class GmailService {
         String pageToken = ss.getPageToken();
         int synced = ss.getTotalMessagesSynced() != null ? ss.getTotalMessagesSynced() : 0;
         
-        String q = "in:inbox OR in:sent";
+        String q = "in:inbox OR in:sent OR in:drafts OR in:trash";
         if (initialSyncDays > 0) {
             LocalDate date = LocalDate.now().minusDays(initialSyncDays);
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd");
@@ -341,12 +341,13 @@ public class GmailService {
         
         List<String> labelIds = message.getLabelIds();
         if (labelIds != null) {
-            if (labelIds.contains("TRASH") || labelIds.contains("SPAM") || labelIds.contains("DRAFT")) {
+            if (labelIds.contains("SPAM")) {
                 return;
             }
-            boolean isInbox = labelIds.contains("INBOX");
-            boolean isSent = labelIds.contains("SENT");
-            if (!isInbox && !isSent) {
+            boolean isCoreMailbox = labelIds.contains("INBOX") || labelIds.contains("SENT")
+                || labelIds.contains("DRAFT") || labelIds.contains("TRASH")
+                || labelIds.contains("STARRED") || labelIds.contains("SNOOZED");
+            if (!isCoreMailbox) {
                 return; // Skip archived messages
             }
         }
@@ -382,6 +383,7 @@ public class GmailService {
         
         String initialCategory = determineInitialCategory(message, headers, bodyText);
         boolean isInbox = labelIds != null && labelIds.contains("INBOX");
+        boolean isDraft = labelIds != null && labelIds.contains("DRAFT");
         boolean isRead = labelIds != null && !labelIds.contains("UNREAD");
         boolean isStarred = labelIds != null && labelIds.contains("STARRED");
         String[] labelsArray = labelIds != null ? labelIds.toArray(new String[0]) : new String[0];
@@ -393,6 +395,7 @@ public class GmailService {
             .bodyText(bodyText).bodyHtml(bodyHtml)
             .receivedAt(Instant.ofEpochMilli(message.getInternalDate())).internalDate(message.getInternalDate())
             .sizeEstimate(message.getSizeEstimate()).isRead(isRead).isStarred(isStarred)
+            .isDraft(isDraft)
             .inInbox(isInbox)
             .gmailLabelIds(labelsArray).aiCategory(initialCategory).build();
 

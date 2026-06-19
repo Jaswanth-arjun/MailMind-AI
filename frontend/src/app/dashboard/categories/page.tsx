@@ -2,13 +2,15 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '@/lib/types';
-import type { Dashboard } from '@/lib/types';
+import type { Dashboard, EmailSummary } from '@/lib/types';
 import Link from 'next/link';
 
 export default function CategoriesPage() {
   const [selected, setSelected] = useState('All');
   const [data, setData] = useState<Dashboard | null>(null);
+  const [emails, setEmails] = useState<EmailSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [emailsLoading, setEmailsLoading] = useState(true);
 
   useEffect(() => {
     api.getDashboard()
@@ -24,6 +26,14 @@ export default function CategoriesPage() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    setEmailsLoading(true);
+    api.getEmails(0, 100, selected === 'All' ? undefined : selected, false)
+      .then(res => setEmails(res.emails))
+      .catch(console.error)
+      .finally(() => setEmailsLoading(false));
+  }, [selected]);
 
   if (loading) return (
     <div className="animate-fade-in max-w-5xl">
@@ -76,8 +86,6 @@ export default function CategoriesPage() {
     { name: 'Job/Recruitment', count: breakdown.jobRecruitment, icon: '💼', pct: Math.round((breakdown.jobRecruitment / total) * 100) },
   ];
 
-  const filtered = selected === 'All' ? data.recentEmails : data.recentEmails.filter(e => e.aiCategory === selected);
-
   return (
     <div className="animate-fade-in max-w-5xl">
       <h1 className="text-2xl font-bold mb-6">🏷️ Email Categories</h1>
@@ -106,7 +114,7 @@ export default function CategoriesPage() {
       {/* Filtered emails */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">
-          {selected === 'All' ? 'All Recent Emails' : selected} ({filtered.length})
+          {selected === 'All' ? 'All Emails' : selected} ({emails.length})
         </h2>
         {selected !== 'All' && (
           <button onClick={() => setSelected('All')} className="text-sm text-primary hover:underline">
@@ -116,10 +124,20 @@ export default function CategoriesPage() {
       </div>
 
       <div className="space-y-2">
-        {filtered.length === 0 ? (
+        {emailsLoading ? (
+          [...Array(4)].map((_, i) => (
+            <div key={i} className="card !p-4 flex items-center gap-4 animate-pulse">
+              <div className="w-10 h-10 rounded-full bg-surface-lighter/50 shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-1/3 bg-surface-lighter/50 rounded" />
+                <div className="h-3 w-2/3 bg-surface-lighter/50 rounded" />
+              </div>
+            </div>
+          ))
+        ) : emails.length === 0 ? (
           <div className="card !p-8 text-center text-text-muted">No emails in this category.</div>
         ) : (
-          filtered.map(email => (
+          emails.map(email => (
             <Link key={email.id} href={`/dashboard/emails/${email.id}`} className="card !p-4 flex items-center gap-4">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center font-semibold shrink-0">
                 {email.senderName?.charAt(0) || email.senderEmail?.charAt(0) || '?'}

@@ -7,8 +7,10 @@ import com.mailmind.gmail.GmailService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -25,18 +27,26 @@ public class EmailController {
     private final GmailAccountRepository gmailAccountRepo;
     private final GmailService gmailService;
     private final SyncStateRepository syncStateRepo;
+    private final JdbcTemplate jdbc;
 
-    public EmailController(EmailRepository er, ThreadRepository tr, GmailAccountRepository gar, GmailService gs, SyncStateRepository ssr) {
-        this.emailRepo = er; this.threadRepo = tr; this.gmailAccountRepo = gar; this.gmailService = gs; this.syncStateRepo = ssr;
+    public EmailController(EmailRepository er, ThreadRepository tr, GmailAccountRepository gar, GmailService gs, SyncStateRepository ssr, JdbcTemplate jdbc) {
+        this.emailRepo = er; this.threadRepo = tr; this.gmailAccountRepo = gar; this.gmailService = gs; this.syncStateRepo = ssr; this.jdbc = jdbc;
     }
 
     @GetMapping("/emails")
     public ResponseEntity<EmailListResponse> listEmails(Authentication auth,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String category,
-            @RequestParam(defaultValue = "true") boolean inboxOnly) {
+            @RequestParam(defaultValue = "true") boolean inboxOnly,
+            @RequestParam(required = false) String mailbox,
+            @RequestParam(required = false) String label) {
         UUID userId = (UUID) auth.getPrincipal();
         GmailAccount acct = gmailAccountRepo.findByUserIdAndIsActiveTrue(userId).orElseThrow();
+
+        if ((mailbox != null && !mailbox.isBlank()) || (label != null && !label.isBlank())) {
+            return ResponseEntity.ok(listByGmailLabel(acct.getId(), mailbox, label, page, size));
+        }
+
         Page<EmailSummaryProjection> emails;
         
         if (inboxOnly) {
@@ -64,6 +74,52 @@ public class EmailController {
         List<EmailSummaryDto> dtos = emails.getContent().stream().map(this::toSummaryDto).collect(Collectors.toList());
         return ResponseEntity.ok(EmailListResponse.builder().emails(dtos)
             .totalCount((int)emails.getTotalElements()).page(page).pageSize(size).build());
+    }
+
+    @GetMapping("/email-labels")
+    public ResponseEntity<List<String>> listLabels(Authentication auth) {
+        UUID userId = (UUID) auth.getPrincipal();
+        GmailAccount acct = gmailAccountRepo.findByUserIdAndIsActiveTrue(userId).orElseThrow();
+        List<String[]> labelArrays = jdbc.query("SELECT gmail_label_ids FROM emails WHERE gmail_account_id = ? AND gmail_label_ids IS NOT NULL", (rs, rowNum) -> (String[]) rs.getArray("gmail_label_ids").getArray(), acct.getId());
+        Set<String> labels = new TreeSet<>();
+        Set<String> hidden = Set.of("INBOX", "SENT", "DRAFT", "TRASH", "SPAM", "UNREAD", "STARRED", "IMPORTANT", "CATEGORY_PERSONAL", "CATEGORY_SOCIAL", "CATEGORY_PROMOTIONS", "CATEGORY_UPDATES", "CATEGORY_FORUMS");
+        for (String[] arr : labelArrays) {
+            if (arr != null) {
+                for (String item : arr) {
+                    if (item != null && !hidden.contains(item)) labels.add(item);
+                }
+            }
+        }
+        return ResponseEntity.ok(new ArrayList<>(labels));
+    }
+
+    private EmailListResponse listByGmailLabel(UUID accountId, String mailbox, String label, int page, int size) {
+        String gmailLabel = label != null && !label.isBlank() ? label : mailboxToGmailLabel(mailbox);
+        if (gmailLabel == null) gmailLabel = "INBOX";
+
+        String countSql = "SELECT COUNT(*) FROM emails WHERE gmail_account_id = ? AND ? = ANY(gmail_label_ids)";
+        Integer total = jdbc.queryForObject(countSql, Integer.class, accountId, gmailLabel);
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT e.id, e.gmail_message_id, e.gmail_thread_id, e.sender_email, e.sender_name, e.subject, e.snippet, e.received_at, e.is_read, e.is_starred, e.ai_summary, e.ai_category, COALESCE(t.message_count, 1) AS thread_message_count "
+            + "FROM emails e LEFT JOIN threads t ON e.thread_id = t.id "
+            + "WHERE e.gmail_account_id = ? AND ? = ANY(e.gmail_label_ids) "
+            + "ORDER BY e.received_at DESC LIMIT ? OFFSET ?",
+            accountId, gmailLabel, size, page * size);
+
+        List<EmailSummaryDto> dtos = rows.stream().map(this::toSummaryDto).collect(Collectors.toList());
+        return EmailListResponse.builder().emails(dtos).totalCount(total != null ? total : 0).page(page).pageSize(size).build();
+    }
+
+    private String mailboxToGmailLabel(String mailbox) {
+        if (mailbox == null) return null;
+        return switch (mailbox.toLowerCase(Locale.ROOT)) {
+            case "sent" -> "SENT";
+            case "drafts", "draft" -> "DRAFT";
+            case "trash" -> "TRASH";
+            case "starred" -> "STARRED";
+            case "snoozed" -> "SNOOZED";
+            default -> mailbox.toUpperCase(Locale.ROOT);
+        };
     }
 
     @GetMapping("/emails/{id}")
@@ -194,6 +250,18 @@ public class EmailController {
             .isRead(e.getIsRead() != null && e.getIsRead()).isStarred(e.getIsStarred() != null && e.getIsStarred())
             .aiSummary(e.getAiSummary()).aiCategory(e.getAiCategory())
             .threadMessageCount(e.getThread() != null && e.getThread().getMessageCount() != null ? e.getThread().getMessageCount() : 1).build();
+    }
+
+    private EmailSummaryDto toSummaryDto(Map<String, Object> e) {
+        Object receivedAt = e.get("received_at");
+        Instant date = receivedAt instanceof Timestamp ts ? ts.toInstant() : (Instant) receivedAt;
+        Number threadCount = (Number) e.get("thread_message_count");
+        return EmailSummaryDto.builder().id((UUID) e.get("id")).gmailMessageId((String) e.get("gmail_message_id"))
+            .gmailThreadId((String) e.get("gmail_thread_id")).senderEmail((String) e.get("sender_email")).senderName((String) e.get("sender_name"))
+            .subject((String) e.get("subject")).snippet((String) e.get("snippet")).receivedAt(date)
+            .isRead(Boolean.TRUE.equals(e.get("is_read"))).isStarred(Boolean.TRUE.equals(e.get("is_starred")))
+            .aiSummary((String) e.get("ai_summary")).aiCategory((String) e.get("ai_category"))
+            .threadMessageCount(threadCount != null ? threadCount.intValue() : 1).build();
     }
 
     private EmailDetailDto toDetailDto(Email e) {

@@ -30,11 +30,15 @@ export const api = {
   getDashboard: () => apiFetch<Dashboard>('/dashboard'),
 
   // Emails
-  getEmails: (page = 0, size = 20, category?: string, inboxOnly = true) => {
+  getEmails: (page = 0, size = 20, category?: string, inboxOnly = true, mailbox?: string, label?: string) => {
     const params = new URLSearchParams({ page: String(page), size: String(size), inboxOnly: String(inboxOnly) });
     if (category) params.set('category', category);
+    if (mailbox) params.set('mailbox', mailbox);
+    if (label) params.set('label', label);
     return apiFetch<{ emails: EmailSummary[]; totalCount: number }>(`/emails?${params}`);
   },
+
+  getLabels: () => apiFetch<string[]>('/email-labels'),
 
   getEmail: (id: string) => apiFetch<EmailDetail>(`/emails/${id}`),
 
@@ -48,6 +52,7 @@ export const api = {
   summarizeEmail: (emailId: string) => apiFetch<{ summary: string }>(`/ai/summarize/email/${emailId}`, { method: 'POST' }),
   summarizeThread: (threadId: string) => apiFetch<{ summary: string }>(`/ai/summarize/thread/${threadId}`, { method: 'POST' }),
   categorize: (emailId: string) => apiFetch<{ category: string }>(`/ai/categorize/${emailId}`, { method: 'POST' }),
+  reindex: () => apiFetch<{ success: boolean; count: number }>('/ai/reindex', { method: 'POST' }),
 
   // Chat
   chat: (question: string, sessionId?: string) =>
@@ -67,4 +72,3 @@ export const api = {
   sendReply: (draftId: string, subject: string, bodyText: string, recipientEmails: string[]) =>
     apiFetch<{ success: boolean }>('/reply/send', { method: 'POST', body: JSON.stringify({ draftId, subject, bodyText, recipientEmails }) }),
 };
-
