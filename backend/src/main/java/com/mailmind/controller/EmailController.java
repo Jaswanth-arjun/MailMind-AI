@@ -97,17 +97,35 @@ public class EmailController {
         String gmailLabel = label != null && !label.isBlank() ? label : mailboxToGmailLabel(mailbox);
         if (gmailLabel == null) gmailLabel = "INBOX";
 
-        String countSql = "SELECT COUNT(*) FROM emails WHERE gmail_account_id = ? AND ? = ANY(gmail_label_ids)";
-        Integer total = jdbc.queryForObject(countSql, Integer.class, accountId, gmailLabel);
-        List<Map<String, Object>> rows = jdbc.queryForList(
-            "SELECT e.id, e.gmail_message_id, e.gmail_thread_id, e.sender_email, e.sender_name, e.subject, e.snippet, e.received_at, e.is_read, e.is_starred, e.ai_summary, e.ai_category, COALESCE(t.message_count, 1) AS thread_message_count "
-            + "FROM emails e LEFT JOIN threads t ON e.thread_id = t.id "
-            + "WHERE e.gmail_account_id = ? AND ? = ANY(e.gmail_label_ids) "
-            + "ORDER BY e.received_at DESC LIMIT ? OFFSET ?",
-            accountId, gmailLabel, size, page * size);
+        GmailAccount acct = gmailAccountRepo.findById(accountId).orElseThrow();
+        String ownEmail = acct.getGmailEmail();
+        boolean filterSent = !"SENT".equalsIgnoreCase(gmailLabel) && !"DRAFT".equalsIgnoreCase(gmailLabel);
 
-        List<EmailSummaryDto> dtos = rows.stream().map(this::toSummaryDto).collect(Collectors.toList());
-        return EmailListResponse.builder().emails(dtos).totalCount(total != null ? total : 0).page(page).pageSize(size).build();
+        String countSql;
+        List<Map<String, Object>> rows;
+        if (filterSent && ownEmail != null) {
+            countSql = "SELECT COUNT(*) FROM emails WHERE gmail_account_id = ? AND ? = ANY(gmail_label_ids) AND (sender_email IS NULL OR sender_email <> ?)";
+            Integer total = jdbc.queryForObject(countSql, Integer.class, accountId, gmailLabel, ownEmail);
+            rows = jdbc.queryForList(
+                "SELECT e.id, e.gmail_message_id, e.gmail_thread_id, e.sender_email, e.sender_name, e.subject, e.snippet, e.received_at, e.is_read, e.is_starred, e.ai_summary, e.ai_category, COALESCE(t.message_count, 1) AS thread_message_count "
+                + "FROM emails e LEFT JOIN threads t ON e.thread_id = t.id "
+                + "WHERE e.gmail_account_id = ? AND ? = ANY(e.gmail_label_ids) AND (e.sender_email IS NULL OR e.sender_email <> ?) "
+                + "ORDER BY e.received_at DESC LIMIT ? OFFSET ?",
+                accountId, gmailLabel, ownEmail, size, page * size);
+            List<EmailSummaryDto> dtos = rows.stream().map(this::toSummaryDto).collect(Collectors.toList());
+            return EmailListResponse.builder().emails(dtos).totalCount(total != null ? total : 0).page(page).pageSize(size).build();
+        } else {
+            countSql = "SELECT COUNT(*) FROM emails WHERE gmail_account_id = ? AND ? = ANY(gmail_label_ids)";
+            Integer total = jdbc.queryForObject(countSql, Integer.class, accountId, gmailLabel);
+            rows = jdbc.queryForList(
+                "SELECT e.id, e.gmail_message_id, e.gmail_thread_id, e.sender_email, e.sender_name, e.subject, e.snippet, e.received_at, e.is_read, e.is_starred, e.ai_summary, e.ai_category, COALESCE(t.message_count, 1) AS thread_message_count "
+                + "FROM emails e LEFT JOIN threads t ON e.thread_id = t.id "
+                + "WHERE e.gmail_account_id = ? AND ? = ANY(e.gmail_label_ids) "
+                + "ORDER BY e.received_at DESC LIMIT ? OFFSET ?",
+                accountId, gmailLabel, size, page * size);
+            List<EmailSummaryDto> dtos = rows.stream().map(this::toSummaryDto).collect(Collectors.toList());
+            return EmailListResponse.builder().emails(dtos).totalCount(total != null ? total : 0).page(page).pageSize(size).build();
+        }
     }
 
     private String mailboxToGmailLabel(String mailbox) {
@@ -158,10 +176,10 @@ public class EmailController {
         Long limit = storage.get("limit");
         Long usage = storage.get("usage");
 
-        int total = emailRepo.countByGmailAccountId(acct.getId());
-        int unread = emailRepo.countByGmailAccountIdAndIsReadFalseAndInInboxTrue(acct.getId());
+        int total = emailRepo.countReceivedEmails(acct.getId());
+        int unread = emailRepo.countUnreadInboxReceivedEmails(acct.getId());
         int threads = threadRepo.countByGmailAccountId(acct.getId());
-        Page<EmailSummaryProjection> recent = emailRepo.findProjectedByGmailAccountIdOrderByReceivedAtDesc(acct.getId(), PageRequest.of(0, 5));
+        Page<EmailSummaryProjection> recent = emailRepo.findRecentReceivedEmails(acct.getId(), PageRequest.of(0, 5));
         // Category breakdown
         List<Object[]> cats = emailRepo.countByCategory(acct.getId());
         CategoryBreakdownDto cbd = CategoryBreakdownDto.builder().build();

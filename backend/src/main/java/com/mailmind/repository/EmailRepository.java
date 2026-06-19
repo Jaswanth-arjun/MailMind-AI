@@ -37,27 +37,27 @@ public interface EmailRepository extends JpaRepository<Email, UUID> {
     List<Email> findByInInboxIsNull();
 
     @EntityGraph(attributePaths = {"thread"})
-    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) ORDER BY e.receivedAt DESC")
+    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND (e.senderEmail IS NULL OR e.senderEmail <> e.gmailAccount.gmailEmail) ORDER BY e.receivedAt DESC")
     Page<EmailSummaryProjection> findInboxEmails(@Param("accountId") UUID accountId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"thread"})
-    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory = :category ORDER BY e.receivedAt DESC")
+    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory = :category AND (e.senderEmail IS NULL OR e.senderEmail <> e.gmailAccount.gmailEmail) ORDER BY e.receivedAt DESC")
     Page<EmailSummaryProjection> findInboxEmailsByCategory(@Param("accountId") UUID accountId, @Param("category") String category, Pageable pageable);
 
     @EntityGraph(attributePaths = {"thread"})
-    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND (e.aiCategory IN ('Personal', 'Work/Professional', 'Job/Recruitment') OR e.aiCategory IS NULL) ORDER BY e.receivedAt DESC")
+    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND (e.aiCategory IN ('Personal', 'Work/Professional', 'Job/Recruitment') OR e.aiCategory IS NULL) AND (e.senderEmail IS NULL OR e.senderEmail <> e.gmailAccount.gmailEmail) ORDER BY e.receivedAt DESC")
     Page<EmailSummaryProjection> findInboxPrimaryEmails(@Param("accountId") UUID accountId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"thread"})
-    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory = 'Newsletters' ORDER BY e.receivedAt DESC")
+    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory = 'Newsletters' AND (e.senderEmail IS NULL OR e.senderEmail <> e.gmailAccount.gmailEmail) ORDER BY e.receivedAt DESC")
     Page<EmailSummaryProjection> findInboxPromotionsEmails(@Param("accountId") UUID accountId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"thread"})
-    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory = 'Social' ORDER BY e.receivedAt DESC")
+    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory = 'Social' AND (e.senderEmail IS NULL OR e.senderEmail <> e.gmailAccount.gmailEmail) ORDER BY e.receivedAt DESC")
     Page<EmailSummaryProjection> findInboxSocialEmails(@Param("accountId") UUID accountId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"thread"})
-    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory IN ('Finance', 'Notifications') ORDER BY e.receivedAt DESC")
+    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.inInbox = true OR e.inInbox IS NULL) AND e.aiCategory IN ('Finance', 'Notifications') AND (e.senderEmail IS NULL OR e.senderEmail <> e.gmailAccount.gmailEmail) ORDER BY e.receivedAt DESC")
     Page<EmailSummaryProjection> findInboxUpdatesEmails(@Param("accountId") UUID accountId, Pageable pageable);
 
     Page<Email> findByGmailAccountIdAndAiCategoryOrderByReceivedAtDesc(
@@ -76,9 +76,19 @@ public interface EmailRepository extends JpaRepository<Email, UUID> {
     @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND e.aiCategorizedAt IS NULL ORDER BY e.receivedAt DESC")
     List<Email> findUncategorized(@Param("accountId") UUID accountId, Pageable pageable);
 
-    @Query("SELECT e.senderEmail, MAX(e.senderName), COUNT(e) as cnt FROM Email e WHERE e.gmailAccount.id = :accountId AND e.senderEmail IS NOT NULL GROUP BY e.senderEmail ORDER BY cnt DESC")
+    @Query("SELECT e.senderEmail, MAX(e.senderName), COUNT(e) as cnt FROM Email e WHERE e.gmailAccount.id = :accountId AND e.senderEmail IS NOT NULL AND e.senderEmail <> e.gmailAccount.gmailEmail GROUP BY e.senderEmail ORDER BY cnt DESC")
     List<Object[]> findTopSenders(@Param("accountId") UUID accountId, Pageable pageable);
 
     @Query("SELECT e.receivedAt FROM Email e WHERE e.gmailAccount.id = :accountId AND e.receivedAt >= :since ORDER BY e.receivedAt ASC")
     List<Instant> findReceivedTimes(@Param("accountId") UUID accountId, @Param("since") Instant since);
+
+    @EntityGraph(attributePaths = {"thread"})
+    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.senderEmail IS NULL OR e.senderEmail <> e.gmailAccount.gmailEmail) ORDER BY e.receivedAt DESC")
+    Page<EmailSummaryProjection> findRecentReceivedEmails(@Param("accountId") UUID accountId, Pageable pageable);
+
+    @Query("SELECT COUNT(e) FROM Email e WHERE e.gmailAccount.id = :accountId AND (e.senderEmail IS NULL OR e.senderEmail <> e.gmailAccount.gmailEmail)")
+    int countReceivedEmails(@Param("accountId") UUID accountId);
+
+    @Query("SELECT COUNT(e) FROM Email e WHERE e.gmailAccount.id = :accountId AND e.isRead = false AND (e.inInbox = true OR e.inInbox IS NULL) AND (e.senderEmail IS NULL OR e.senderEmail <> e.gmailAccount.gmailEmail)")
+    int countUnreadInboxReceivedEmails(@Param("accountId") UUID accountId);
 }
