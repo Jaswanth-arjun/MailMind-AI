@@ -23,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
@@ -37,6 +39,7 @@ public class GmailService {
     @Value("${gmail.sync.max-results:100}") private int maxResults;
     @Value("${gmail.sync.rate-limit-retry-max:5}") private int maxRetries;
     @Value("${gmail.sync.rate-limit-base-delay-ms:1000}") private long baseDelayMs;
+    @Value("${gmail.sync.initial-sync-days:30}") private int initialSyncDays;
 
     private final GmailAccountRepository gmailAccountRepo;
     private final EmailRepository emailRepo;
@@ -246,10 +249,20 @@ public class GmailService {
     private void performInitialSync(Gmail gmail, GmailAccount account, SyncState ss) throws IOException, InterruptedException {
         String pageToken = ss.getPageToken();
         int synced = ss.getTotalMessagesSynced() != null ? ss.getTotalMessagesSynced() : 0;
+        
+        LocalDate date = LocalDate.now().minusDays(initialSyncDays);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd");
+        String q = "in:inbox OR in:sent after:" + date.format(formatter);
+        log.info("Performing initial sync for query: '{}' (limit days: {})", q, initialSyncDays);
+
         do {
             String pt = pageToken;
             ListMessagesResponse resp = executeWithBackoff(() ->
-                gmail.users().messages().list("me").setMaxResults((long)maxResults).setPageToken(pt).execute());
+                gmail.users().messages().list("me")
+                    .setQ(q)
+                    .setMaxResults((long)maxResults)
+                    .setPageToken(pt)
+                    .execute());
             if (resp.getMessages() != null) {
                 for (Message mr : resp.getMessages()) {
                     try {
@@ -292,6 +305,19 @@ public class GmailService {
     @Transactional
     public void saveEmail(Message message, GmailAccount account) {
         if (emailRepo.existsByGmailAccountIdAndGmailMessageId(account.getId(), message.getId())) return;
+        
+        List<String> labelIds = message.getLabelIds();
+        if (labelIds != null) {
+            if (labelIds.contains("TRASH") || labelIds.contains("SPAM") || labelIds.contains("DRAFT")) {
+                return;
+            }
+            boolean isInbox = labelIds.contains("INBOX");
+            boolean isSent = labelIds.contains("SENT");
+            if (!isInbox && !isSent) {
+                return; // Skip archived messages
+            }
+        }
+
         Map<String, String> headers = new HashMap<>();
         if (message.getPayload() != null && message.getPayload().getHeaders() != null)
             for (MessagePartHeader h : message.getPayload().getHeaders()) headers.put(h.getName().toLowerCase(), h.getValue());
@@ -320,16 +346,80 @@ public class GmailService {
             .orElseGet(() -> threadRepo.save(EmailThread.builder().gmailAccount(account).gmailThreadId(message.getThreadId())
                 .subject(headers.getOrDefault("subject", "(No Subject)")).messageCount(0).build()));
         String from = headers.getOrDefault("from", "");
+        
+        String initialCategory = determineInitialCategory(message, headers, bodyText);
+        boolean isRead = labelIds != null && !labelIds.contains("UNREAD");
+        boolean isStarred = labelIds != null && labelIds.contains("STARRED");
+        String[] labelsArray = labelIds != null ? labelIds.toArray(new String[0]) : new String[0];
+
         Email email = Email.builder().gmailAccount(account).thread(thread).gmailMessageId(message.getId())
             .gmailThreadId(message.getThreadId()).senderEmail(extractEmail(from)).senderName(extractName(from))
             .recipientEmails(parseEmails(headers.getOrDefault("to", ""))).ccEmails(parseEmails(headers.getOrDefault("cc", "")))
             .subject(headers.getOrDefault("subject", "(No Subject)")).snippet(message.getSnippet())
             .bodyText(bodyText).bodyHtml(bodyHtml)
             .receivedAt(Instant.ofEpochMilli(message.getInternalDate())).internalDate(message.getInternalDate())
-            .sizeEstimate(message.getSizeEstimate()).isRead(!message.getLabelIds().contains("UNREAD"))
-            .isStarred(message.getLabelIds().contains("STARRED")).gmailLabelIds(message.getLabelIds().toArray(new String[0])).build();
+            .sizeEstimate(message.getSizeEstimate()).isRead(isRead).isStarred(isStarred)
+            .gmailLabelIds(labelsArray).aiCategory(initialCategory).build();
+
         emailRepo.save(email);
         thread.setMessageCount(thread.getMessageCount() + 1); thread.setLastMessageAt(email.getReceivedAt()); threadRepo.save(thread);
+    }
+
+    private String determineInitialCategory(Message message, Map<String, String> headers, String bodyText) {
+        List<String> labelIds = message.getLabelIds();
+        String from = headers.getOrDefault("from", "").toLowerCase();
+        String subject = headers.getOrDefault("subject", "").toLowerCase();
+        
+        // 1. Check for Newsletters (via List-Unsubscribe header or Promotions/Forums label)
+        if (headers.containsKey("list-unsubscribe") || (labelIds != null && (labelIds.contains("CATEGORY_PROMOTIONS") || labelIds.contains("CATEGORY_FORUMS")))) {
+            return "Newsletters";
+        }
+        
+        // 2. Check for Finance
+        if (subject.contains("invoice") || subject.contains("receipt") || subject.contains("billing") ||
+            subject.contains("payment") || subject.contains("stripe") || subject.contains("paypal") ||
+            subject.contains("statement") || subject.contains("bank") || subject.contains("transaction") ||
+            from.contains("billing") || from.contains("payment") || from.contains("finance")) {
+            return "Finance";
+        }
+        
+        // 3. Check for Job/Recruitment
+        if (subject.contains("job") || subject.contains("career") || subject.contains("hiring") ||
+            subject.contains("interview") || subject.contains("resume") || subject.contains("application") ||
+            subject.contains("naukri") || from.contains("naukri") || from.contains("recruit") ||
+            from.contains("career") || from.contains("job")) {
+            return "Job/Recruitment";
+        }
+        
+        // 4. Check for Notifications (via Updates label or typical automated terms)
+        if (labelIds != null && labelIds.contains("CATEGORY_UPDATES")) {
+            return "Notifications";
+        }
+        if (subject.contains("notification") || subject.contains("alert") || subject.contains("update") ||
+            subject.contains("verify") || subject.contains("security alert") || subject.contains("otp") ||
+            from.contains("no-reply") || from.contains("noreply") || from.contains("notification")) {
+            return "Notifications";
+        }
+        
+        // 5. Check for Work/Professional (if from a corporate domain)
+        String senderEmail = extractEmail(headers.getOrDefault("from", ""));
+        if (!senderEmail.isEmpty() && senderEmail.contains("@")) {
+            String domain = senderEmail.substring(senderEmail.indexOf("@") + 1).toLowerCase();
+            List<String> personalDomains = Arrays.asList(
+                "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "aol.com", "icloud.com", 
+                "mail.com", "zoho.com", "protonmail.com", "gmx.com", "yandex.com", "live.com"
+            );
+            if (!personalDomains.contains(domain)) {
+                return "Work/Professional";
+            }
+        }
+        
+        // 6. Check for Social or Personal labels
+        if (labelIds != null && (labelIds.contains("CATEGORY_SOCIAL") || labelIds.contains("CATEGORY_PERSONAL"))) {
+            return "Personal";
+        }
+        
+        return "Personal"; // Default to Personal
     }
 
     public String sendEmail(GmailAccount acct, String to, String subj, String body, String replyTo, String threadId) throws Exception {

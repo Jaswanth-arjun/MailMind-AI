@@ -37,7 +37,7 @@ public interface EmailRepository extends JpaRepository<Email, UUID> {
     @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND e.aiSummary IS NULL ORDER BY e.receivedAt DESC")
     List<Email> findUnsummarized(@Param("accountId") UUID accountId, Pageable pageable);
 
-    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND e.aiCategory IS NULL ORDER BY e.receivedAt DESC")
+    @Query("SELECT e FROM Email e WHERE e.gmailAccount.id = :accountId AND e.aiCategorizedAt IS NULL ORDER BY e.receivedAt DESC")
     List<Email> findUncategorized(@Param("accountId") UUID accountId, Pageable pageable);
 
     @Query("SELECT COALESCE(NULLIF(trim(e.senderName), ''), e.senderEmail), COUNT(e) as cnt FROM Email e WHERE e.gmailAccount.id = :accountId GROUP BY COALESCE(NULLIF(trim(e.senderName), ''), e.senderEmail) ORDER BY cnt DESC")

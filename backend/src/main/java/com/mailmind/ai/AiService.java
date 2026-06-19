@@ -142,37 +142,114 @@ public class AiService {
     /** Get text embedding from Gemini */
     public float[] getEmbedding(String text) {
         try {
-            String url = "/v1beta/models/" + embeddingModel + ":embedContent?key=" + geminiKey;
-            Map<String, Object> body = Map.of("model", "models/" + embeddingModel,
-                "content", Map.of("parts", List.of(Map.of("text", truncate(text, 5000)))));
+            String url = "/v1beta2/models/" + embeddingModel + ":embedText";
+            Map<String, Object> body = Map.of("instances", List.of(Map.of("content", truncate(text, 5000))));
             String resp = geminiClient.post().uri(url)
                 .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + geminiKey)
                 .bodyValue(body).retrieve().bodyToMono(String.class).block();
             JsonNode node = mapper.readTree(resp);
-            JsonNode values = node.get("embedding").get("values");
-            float[] embedding = new float[values.size()];
-            for (int i = 0; i < values.size(); i++) embedding[i] = (float) values.get(i).asDouble();
-            return embedding;
+            float[] embedding = parseEmbedding(node);
+            if (embedding != null) return embedding;
+            log.error("Embedding response missing expected structure: {}", resp);
         } catch (Exception e) {
             log.error("Embedding failed: {}", e.getMessage());
-            return new float[768]; // Return zero vector as fallback
         }
+        return new float[768]; // Return zero vector as fallback
+    }
+
+    private float[] parseEmbedding(JsonNode node) {
+        if (node.has("predictions") && node.get("predictions").isArray()) {
+            JsonNode pred = node.get("predictions").get(0);
+            JsonNode embedding = pred.get("embedding");
+            if (embedding != null && embedding.isArray()) {
+                return jsonArrayToFloatArray(embedding);
+            }
+            JsonNode output = pred.get("output");
+            if (output != null && output.has("embedding")) {
+                return jsonArrayToFloatArray(output.get("embedding"));
+            }
+        }
+        if (node.has("embedding") && node.get("embedding").has("values")) {
+            return jsonArrayToFloatArray(node.get("embedding").get("values"));
+        }
+        if (node.has("predictions") && node.get("predictions").isArray()) {
+            JsonNode first = node.get("predictions").get(0);
+            if (first.has("data") && first.get("data").isArray()) {
+                JsonNode dataEmb = first.get("data").get(0).get("embedding");
+                if (dataEmb != null) return jsonArrayToFloatArray(dataEmb);
+            }
+        }
+        return null;
+    }
+
+    private float[] jsonArrayToFloatArray(JsonNode array) {
+        float[] embedding = new float[array.size()];
+        for (int i = 0; i < array.size(); i++) {
+            embedding[i] = (float) array.get(i).asDouble();
+        }
+        return embedding;
     }
 
     /** Call Gemini API */
     private String callGemini(String prompt) {
         try {
-            String url = "/v1beta/models/" + geminiModel + ":generateContent?key=" + geminiKey;
-            Map<String, Object> body = Map.of("contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
-                "generationConfig", Map.of("temperature", 0.3, "maxOutputTokens", 2048));
+            String url = "/v1beta2/models/" + geminiModel + ":generateText";
+            Map<String, Object> body = Map.of(
+                "instances", List.of(Map.of("content", prompt)),
+                "temperature", 0.3,
+                "maxOutputTokens", 2048
+            );
             String resp = geminiClient.post().uri(url).header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + geminiKey)
                 .bodyValue(body).retrieve().bodyToMono(String.class).block();
             JsonNode node = mapper.readTree(resp);
-            return node.get("candidates").get(0).get("content").get("parts").get(0).get("text").asText();
+            String result = parseTextResponse(node);
+            if (result != null) return result;
+            log.error("Gemini response missing expected structure: {}", resp);
         } catch (Exception e) {
             log.error("Gemini call failed, trying NVIDIA NIM: {}", e.getMessage());
-            return callNvidia(prompt);
         }
+        return callNvidia(prompt);
+    }
+
+    private String parseTextResponse(JsonNode node) {
+        if (node.has("predictions") && node.get("predictions").isArray()) {
+            JsonNode first = node.get("predictions").get(0);
+            if (first.has("candidates") && first.get("candidates").isArray()) {
+                JsonNode candidate = first.get("candidates").get(0);
+                if (candidate.has("output")) {
+                    JsonNode output = candidate.get("output");
+                    if (output.isTextual()) return output.asText();
+                    if (output.isArray() && output.size() > 0) {
+                        JsonNode part = output.get(0);
+                        if (part.has("content")) return part.get("content").asText();
+                    }
+                }
+                if (candidate.has("content") && candidate.get("content").has("parts")) {
+                    JsonNode parts = candidate.get("content").get("parts");
+                    if (parts.isArray() && parts.size() > 0) {
+                        return parts.get(0).get("text").asText();
+                    }
+                }
+            }
+            if (first.has("outputText")) {
+                return first.get("outputText").asText();
+            }
+        }
+        if (node.has("candidates") && node.get("candidates").isArray()) {
+            JsonNode candidate = node.get("candidates").get(0);
+            if (candidate.has("content") && candidate.get("content").has("parts")) {
+                JsonNode parts = candidate.get("content").get("parts");
+                if (parts.isArray() && parts.size() > 0) {
+                    return parts.get(0).get("text").asText();
+                }
+            }
+        }
+        if (node.has("output") && node.get("output").isTextual()) {
+            return node.get("output").asText();
+        }
+        return null;
     }
 
     /** Fallback to NVIDIA NIM */
