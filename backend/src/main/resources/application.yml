@@ -67,7 +67,7 @@ nvidia:
 gmail:
   sync:
     max-results: 100
-    initial-sync-days: 30
+    initial-sync-days: ${GMAIL_SYNC_INITIAL_DAYS:365}
     rate-limit-retry-max: 5
     rate-limit-base-delay-ms: 1000
 

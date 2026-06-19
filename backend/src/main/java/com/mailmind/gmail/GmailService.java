@@ -250,10 +250,15 @@ public class GmailService {
         String pageToken = ss.getPageToken();
         int synced = ss.getTotalMessagesSynced() != null ? ss.getTotalMessagesSynced() : 0;
         
-        LocalDate date = LocalDate.now().minusDays(initialSyncDays);
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd");
-        String q = "in:inbox OR in:sent after:" + date.format(formatter);
-        log.info("Performing initial sync for query: '{}' (limit days: {})", q, initialSyncDays);
+        String q = "in:inbox OR in:sent";
+        if (initialSyncDays > 0) {
+            LocalDate date = LocalDate.now().minusDays(initialSyncDays);
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd");
+            q += " after:" + date.format(formatter);
+            log.info("Performing initial sync for query: '{}' (limit days: {})", q, initialSyncDays);
+        } else {
+            log.info("Performing initial sync for query: '{}' (sync all messages)", q);
+        }
 
         do {
             String pt = pageToken;

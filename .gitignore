@@ -36,3 +36,6 @@ logs/
 # Build
 dist/
 build/
+
+# Database
+backend/data/
