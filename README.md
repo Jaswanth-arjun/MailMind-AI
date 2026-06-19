@@ -10,6 +10,11 @@ MailMind AI connects to your Gmail via OAuth 2.0, syncs emails, and provides AI-
 ![Tech Stack](https://img.shields.io/badge/AI-Google_Gemini-orange?style=flat-square)
 ![Tech Stack](https://img.shields.io/badge/AI-NVIDIA_NIM-76B900?style=flat-square)
 
+## 🌐 Live Deployment
+- Frontend: `https://<your-frontend-domain>`
+- Backend API: `https://<your-backend-domain>`
+- GitHub: https://github.com/Jaswanth-arjun/MailMind-AI
+
 ---
 
 ## ✨ Features
